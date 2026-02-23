@@ -1,4 +1,4 @@
-import { readFile, readdir, access } from 'node:fs/promises';
+import { readFile, readdir, access, rm } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import YAML from 'yaml';
@@ -147,10 +147,23 @@ export async function installApp(slug: string): Promise<{ success: boolean; outp
 	}
 }
 
-export async function uninstallApp(slug: string): Promise<{ success: boolean; output?: string }> {
+export async function uninstallApp(slug: string, deleteData = false): Promise<{ success: boolean; output?: string }> {
+	// Validate slug to prevent path traversal
+	if (!/^[a-z0-9-]+$/.test(slug)) {
+		return { success: false, output: 'Invalid app slug' };
+	}
 	try {
-		// Saltbox doesn't have a native uninstall - stop and remove container
+		// Stop and remove container
 		const { stdout } = await exec('docker', ['rm', '-f', slug], { timeout: 30000 });
+
+		// Optionally remove persistent data
+		if (deleteData) {
+			const optPath = `/opt/${slug}`;
+			if (await fileExists(optPath)) {
+				await rm(optPath, { recursive: true, force: true });
+			}
+		}
+
 		return { success: true, output: stdout };
 	} catch (e) {
 		return { success: false, output: String(e) };

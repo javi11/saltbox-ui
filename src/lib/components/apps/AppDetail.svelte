@@ -7,11 +7,24 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import Card from '$lib/components/ui/Card.svelte';
 	import ProgressBar from '$lib/components/ui/ProgressBar.svelte';
-	import { ExternalLink, RotateCw, Square, Play, ArrowLeft } from 'lucide-svelte';
+	import { ExternalLink, RotateCw, Square, Play, ArrowLeft, Trash2 } from 'lucide-svelte';
 
-	let { app, logs = [] }: { app: SaltboxApp; logs?: ContainerLog[] } = $props();
+	let {
+		app,
+		logs = [],
+		onaction,
+		ondelete
+	}: {
+		app: SaltboxApp;
+		logs?: ContainerLog[];
+		onaction?: (action: 'start' | 'stop' | 'restart') => void;
+		ondelete?: (deleteData: boolean) => void;
+	} = $props();
 
 	let activeTab = $state<'overview' | 'logs' | 'config' | 'network'>('overview');
+	let showDeleteConfirm = $state(false);
+	let deleteData = $state(false);
+	let confirmName = $state('');
 
 	const statusVariant = $derived(
 		app.status === 'running' ? 'success' as const :
@@ -44,13 +57,54 @@
 				</Button>
 			{/if}
 			{#if app.status === 'running'}
-				<Button variant="default"><RotateCw size={14} /> Restart</Button>
-				<Button variant="danger"><Square size={14} /> Stop</Button>
+				<Button variant="default" onclick={() => onaction?.('restart')}><RotateCw size={14} /> Restart</Button>
+				<Button variant="danger" onclick={() => onaction?.('stop')}><Square size={14} /> Stop</Button>
 			{:else if app.status === 'stopped'}
-				<Button variant="primary"><Play size={14} /> Start</Button>
+				<Button variant="primary" onclick={() => onaction?.('start')}><Play size={14} /> Start</Button>
 			{/if}
+			<Button variant="danger" onclick={() => (showDeleteConfirm = true)}><Trash2 size={14} /> Delete</Button>
 		</div>
 	</div>
+
+	<!-- Delete confirmation -->
+	{#if showDeleteConfirm}
+		<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60" role="dialog">
+			<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+			<div class="bg-surface border border-border rounded-lg p-6 max-w-md w-full mx-4 shadow-xl" onclick={(e) => e.stopPropagation()}>
+				<h2 class="text-lg font-semibold text-text mb-2">Delete {app.name}?</h2>
+				<p class="text-sm text-text-secondary mb-4">
+					This will remove the Docker container. This action cannot be undone.
+				</p>
+				<label class="flex items-start gap-3 p-3 rounded-md bg-red/5 border border-red/20 mb-4 cursor-pointer">
+					<input type="checkbox" bind:checked={deleteData} class="mt-0.5 accent-red" />
+					<div>
+						<span class="text-sm font-medium text-red">Also delete <code class="text-xs">/opt/{app.slug}</code></span>
+						<p class="text-xs text-text-tertiary mt-0.5">Removes all persistent data, configs, and databases for this app.</p>
+					</div>
+				</label>
+				<p class="text-sm text-text-secondary mb-2">Type <strong class="text-text">{app.slug}</strong> to confirm:</p>
+				<input
+					type="text"
+					bind:value={confirmName}
+					placeholder={app.slug}
+					class="w-full px-3 py-2 text-sm bg-bg border border-border rounded-md text-text placeholder:text-text-tertiary focus:outline-none focus:border-amber/50 mb-4"
+				/>
+				<div class="flex justify-end gap-2">
+					<Button variant="ghost" onclick={() => { showDeleteConfirm = false; confirmName = ''; deleteData = false; }}>Cancel</Button>
+					<button
+						disabled={confirmName !== app.slug}
+						onclick={() => { showDeleteConfirm = false; ondelete?.(deleteData); }}
+						class="px-4 py-2 text-sm font-medium rounded-md transition-colors cursor-pointer
+							{confirmName === app.slug
+								? 'bg-red hover:bg-red/80 text-white'
+								: 'bg-surface-hover text-text-tertiary cursor-not-allowed'}"
+					>
+						Delete {deleteData ? 'everything' : 'container'}
+					</button>
+				</div>
+			</div>
+		</div>
+	{/if}
 
 	<!-- Tabs -->
 	<div class="flex gap-1 border-b border-border">

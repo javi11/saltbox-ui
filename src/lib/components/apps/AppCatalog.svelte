@@ -5,17 +5,29 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import SearchBar from '$lib/components/ui/SearchBar.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
-	import { Download, Check } from 'lucide-svelte';
+	import { Download, Check, Loader2 } from 'lucide-svelte';
 
 	let {
 		catalog,
-		open = $bindable(false)
+		open = $bindable(false),
+		oninstall
 	}: {
 		catalog: AppCatalogEntry[];
 		open?: boolean;
+		oninstall?: (slug: string) => Promise<void>;
 	} = $props();
 
 	let search = $state('');
+	let installingSlug = $state<string | null>(null);
+
+	async function handleInstall(slug: string) {
+		installingSlug = slug;
+		try {
+			await oninstall?.(slug);
+		} finally {
+			installingSlug = null;
+		}
+	}
 
 	const filtered = $derived(
 		search.length === 0
@@ -45,8 +57,12 @@
 							<Check size={14} /> Installed
 						</span>
 					{:else}
-						<Button size="sm" variant="primary">
-							<Download size={12} /> Install
+						<Button size="sm" variant="primary" disabled={installingSlug === entry.slug} onclick={() => handleInstall(entry.slug)}>
+							{#if installingSlug === entry.slug}
+								<Loader2 size={12} class="animate-spin" /> Installing...
+							{:else}
+								<Download size={12} /> Install
+							{/if}
 						</Button>
 					{/if}
 				</div>

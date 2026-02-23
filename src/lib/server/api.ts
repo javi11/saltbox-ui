@@ -41,8 +41,8 @@ export const api = {
 	async installApp(slug: string): Promise<{ success: boolean }> {
 		return withFallback(() => saltbox.installApp(slug), { success: false });
 	},
-	async uninstallApp(slug: string): Promise<{ success: boolean }> {
-		return withFallback(() => saltbox.uninstallApp(slug), { success: false });
+	async uninstallApp(slug: string, deleteData = false): Promise<{ success: boolean }> {
+		return withFallback(() => saltbox.uninstallApp(slug, deleteData), { success: false });
 	},
 
 	// Containers
