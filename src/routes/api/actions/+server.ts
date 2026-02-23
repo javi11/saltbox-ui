@@ -6,23 +6,28 @@ import type { RequestHandler } from './$types';
 export const POST: RequestHandler = async ({ request, locals }) => {
 	const { action } = await request.json();
 
-	switch (action) {
-		case 'updateAll':
-			await auditLog({ user: locals.user, action: 'updateAll' });
-			return json(await api.updateAll());
-		case 'backupNow':
-			await auditLog({ user: locals.user, action: 'backupNow' });
-			return json(await api.backupNow());
-		case 'restartTraefik':
-			await auditLog({ user: locals.user, action: 'restartTraefik' });
-			return json(await api.restartTraefik());
-		case 'clearLogs':
-			await auditLog({ user: locals.user, action: 'clearLogs' });
-			return json(await api.clearLogs());
-		case 'updateSaltbox':
-			await auditLog({ user: locals.user, action: 'updateSaltbox' });
-			return json(await api.updateSaltbox());
-		default:
-			return json({ success: false, error: 'Unknown action' }, { status: 400 });
+	try {
+		switch (action) {
+			case 'updateAll':
+				await auditLog({ user: locals.user, action: 'updateAll' });
+				return json(await api.updateAll());
+			case 'backupNow':
+				await auditLog({ user: locals.user, action: 'backupNow' });
+				return json(await api.backupNow());
+			case 'restartTraefik':
+				await auditLog({ user: locals.user, action: 'restartTraefik' });
+				return json(await api.restartTraefik());
+			case 'clearLogs':
+				await auditLog({ user: locals.user, action: 'clearLogs' });
+				return json(await api.clearLogs());
+			case 'updateSaltbox':
+				await auditLog({ user: locals.user, action: 'updateSaltbox' });
+				return json(await api.updateSaltbox());
+			default:
+				return json({ success: false, error: 'Unknown action' }, { status: 400 });
+		}
+	} catch (e) {
+		const message = e instanceof Error ? e.message : 'Unknown error';
+		return json({ success: false, error: message }, { status: 500 });
 	}
 };

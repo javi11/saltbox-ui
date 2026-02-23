@@ -11,6 +11,7 @@ export const GET: RequestHandler = async ({ params }) => {
 		status: job.status,
 		exitCode: job.exitCode,
 		startedAt: job.startedAt,
-		finishedAt: job.finishedAt
+		finishedAt: job.finishedAt,
+		output: job.status !== 'running' ? job.output.slice(-20) : undefined
 	});
 };

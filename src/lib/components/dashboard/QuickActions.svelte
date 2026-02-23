@@ -25,7 +25,10 @@
 					return true;
 				}
 				if (job.status === 'failed') {
-					ui.addToast(`${label} failed`, 'error');
+					const detail = job.output?.length
+						? job.output.slice(-3).join('\n')
+						: `exit code ${job.exitCode ?? 'unknown'}`;
+					ui.addToast(`${label} failed: ${detail}`, 'error');
 					return false;
 				}
 			} catch {
@@ -38,31 +41,43 @@
 
 	async function handleAction(name: string, action: string) {
 		ui.addToast(`${name}...`, 'info');
-		const res = await fetch('/api/actions', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ action })
-		});
-		const result = await res.json();
+		try {
+			const res = await fetch('/api/actions', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ action })
+			});
 
-		if (action === 'updateAll' && result.success && result.jobId) {
-			updating = true;
-			await pollJob(result.jobId, 'Update All');
-			updating = false;
-			return;
-		}
+			if (!res.ok) {
+				const body = await res.json().catch(() => null);
+				const detail = body?.error || `server error (${res.status})`;
+				ui.addToast(`${name} failed: ${detail}`, 'error');
+				return;
+			}
 
-		if (action === 'updateSaltbox' && result.success && result.jobId) {
-			updatingSaltbox = true;
-			await pollJob(result.jobId, 'Update Saltbox');
-			updatingSaltbox = false;
-			return;
-		}
+			const result = await res.json();
 
-		if (result.success) {
-			ui.addToast(`${name} completed`, 'success');
-		} else {
-			ui.addToast(`${name} failed`, 'error');
+			if (action === 'updateAll' && result.success && result.jobId) {
+				updating = true;
+				await pollJob(result.jobId, 'Update All');
+				updating = false;
+				return;
+			}
+
+			if (action === 'updateSaltbox' && result.success && result.jobId) {
+				updatingSaltbox = true;
+				await pollJob(result.jobId, 'Update Saltbox');
+				updatingSaltbox = false;
+				return;
+			}
+
+			if (result.success) {
+				ui.addToast(`${name} completed`, 'success');
+			} else {
+				ui.addToast(`${name} failed: ${result.error || 'unknown error'}`, 'error');
+			}
+		} catch {
+			ui.addToast(`${name} failed: could not reach server`, 'error');
 		}
 	}
 </script>

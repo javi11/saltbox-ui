@@ -21,9 +21,10 @@ export function getUI() {
 		addToast(message: string, type: ToastData['type'] = 'info') {
 			const id = nextToastId++;
 			toasts = [...toasts, { id, message, type }];
+			const duration = type === 'error' ? 8000 : 4000;
 			setTimeout(() => {
 				toasts = toasts.filter((t) => t.id !== id);
-			}, 4000);
+			}, duration);
 		},
 		removeToast(id: number) {
 			toasts = toasts.filter((t) => t.id !== id);
