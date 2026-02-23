@@ -7,6 +7,7 @@
 	import { getAppsStore } from '$lib/stores/apps.svelte';
 	import { getUI } from '$lib/stores/ui.svelte';
 	import { Plus, LayoutGrid, List } from 'lucide-svelte';
+	import { invalidateAll } from '$app/navigation';
 	import type { AppCategory } from '$lib/types/app';
 
 	let { data } = $props();
@@ -25,6 +26,22 @@
 
 	function handleAction(action: string, slug: string) {
 		ui.addToast(`${action} ${slug}...`, 'info');
+	}
+
+	async function handleInstall(slug: string) {
+		ui.addToast(`Installing ${slug}...`, 'info');
+		try {
+			const res = await fetch(`/api/apps/${slug}/install`, { method: 'POST' });
+			const result = await res.json();
+			if (result.success) {
+				ui.addToast(`${slug} installed successfully`, 'success');
+				await invalidateAll();
+			} else {
+				ui.addToast(`Failed to install ${slug}`, 'error');
+			}
+		} catch {
+			ui.addToast(`Failed to install ${slug}`, 'error');
+		}
 	}
 </script>
 
@@ -65,5 +82,5 @@
 
 	<AppGrid apps={filtered} onaction={handleAction} />
 
-	<AppCatalog catalog={data.catalog} bind:open={catalogOpen} />
+	<AppCatalog catalog={data.catalog} bind:open={catalogOpen} oninstall={handleInstall} />
 </div>
