@@ -1,4 +1,5 @@
-import { hostSpawn } from './host-exec';
+import { spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 
 export interface Job {
 	id: string;
@@ -12,7 +13,6 @@ export interface Job {
 }
 
 const jobs = new Map<string, Job>();
-let jobCounter = 0;
 
 export function getJobs(): Job[] {
 	return Array.from(jobs.values()).sort(
@@ -25,7 +25,7 @@ export function getJob(id: string): Job | undefined {
 }
 
 export function startJob(command: string, args: string[]): Job {
-	const id = `job-${++jobCounter}-${Date.now()}`;
+	const id = randomUUID();
 	const job: Job = {
 		id,
 		command,
@@ -37,7 +37,7 @@ export function startJob(command: string, args: string[]): Job {
 
 	jobs.set(id, job);
 
-	const proc = hostSpawn(command, args);
+	const proc = spawn(command, args);
 
 	const appendOutput = (data: Buffer) => {
 		const lines = data.toString('utf-8').split('\n').filter(Boolean);
