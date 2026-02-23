@@ -38,6 +38,13 @@
 	--animate-fade-in: fade-in 150ms ease-out;
 	--animate-slide-in: slide-in 150ms ease-out;
 	--animate-pulse-slow: pulse-slow 2s ease-in-out infinite;
+	--animate-shimmer: shimmer 1.5s ease-in-out infinite;
+
+	@keyframes shimmer {
+		0% { transform: translateX(-100%); opacity: 0.6; }
+		50% { opacity: 1; }
+		100% { transform: translateX(300%); opacity: 0.6; }
+	}
 
 	@keyframes fade-in {
 		from { opacity: 0; }

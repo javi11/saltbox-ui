@@ -1,9 +1,12 @@
 <script lang="ts">
 	import '../app.css';
 	import type { Snippet } from 'svelte';
+	import { navigating } from '$app/stores';
 	import Sidebar from '$lib/components/layout/Sidebar.svelte';
 	import Topbar from '$lib/components/layout/Topbar.svelte';
 	import CommandPalette from '$lib/components/layout/CommandPalette.svelte';
+	import NavigationLoader from '$lib/components/layout/NavigationLoader.svelte';
+	import PageSkeleton from '$lib/components/ui/PageSkeleton.svelte';
 	import { getUI } from '$lib/stores/ui.svelte';
 	import { CheckCircle, XCircle, AlertTriangle, Info } from 'lucide-svelte';
 
@@ -28,6 +31,8 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
+<NavigationLoader />
+
 <div class="flex h-screen bg-bg">
 	<Sidebar />
 
@@ -38,7 +43,11 @@
 	>
 		<Topbar />
 		<main class="flex-1 overflow-y-auto p-6">
-			{@render children()}
+			{#if $navigating}
+				<PageSkeleton />
+			{:else}
+				{@render children()}
+			{/if}
 		</main>
 	</div>
 </div>
