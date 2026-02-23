@@ -19,6 +19,8 @@ export interface SaltboxApp {
 	docsUrl?: string;
 }
 
+export type AppSource = 'saltbox' | 'sandbox';
+
 export interface AppCatalogEntry {
 	slug: string;
 	name: string;
@@ -26,4 +28,5 @@ export interface AppCatalogEntry {
 	description: string;
 	installed: boolean;
 	official: boolean;
+	source: AppSource;
 }

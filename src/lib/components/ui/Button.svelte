@@ -5,12 +5,14 @@
 		variant = 'default',
 		size = 'md',
 		disabled = false,
+		full = false,
 		onclick,
 		children
 	}: {
 		variant?: 'default' | 'primary' | 'danger' | 'ghost';
 		size?: 'sm' | 'md' | 'lg';
 		disabled?: boolean;
+		full?: boolean;
 		onclick?: (e: MouseEvent) => void;
 		children: Snippet;
 	} = $props();
@@ -30,7 +32,7 @@
 </script>
 
 <button
-	class="inline-flex items-center justify-center gap-2 rounded-md font-medium transition-all duration-150 ease-out disabled:opacity-40 disabled:pointer-events-none cursor-pointer {variants[variant]} {sizes[size]}"
+	class="inline-flex items-center justify-center gap-2 rounded-md font-medium transition-all duration-150 ease-out disabled:opacity-40 disabled:pointer-events-none cursor-pointer {variants[variant]} {sizes[size]} {full ? 'w-full' : ''}"
 	{disabled}
 	{onclick}
 >
