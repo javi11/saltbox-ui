@@ -19,6 +19,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		case 'clearLogs':
 			await auditLog({ user: locals.user, action: 'clearLogs' });
 			return json(await api.clearLogs());
+		case 'updateSaltbox':
+			await auditLog({ user: locals.user, action: 'updateSaltbox' });
+			return json(await api.updateSaltbox());
 		default:
 			return json({ success: false, error: 'Unknown action' }, { status: 400 });
 	}

@@ -89,12 +89,12 @@ export const api = {
 	},
 
 	// Actions
-	async updateAll(): Promise<{ success: boolean }> {
-		return withFallback<{ success: boolean }>(
+	async updateAll(): Promise<{ success: boolean; jobId?: string }> {
+		return withFallback<{ success: boolean; jobId?: string }>(
 			async () => {
 				const { startJob } = await import('./jobs');
-				startJob('sb', ['update']);
-				return { success: true };
+				const job = startJob('sb', ['update']);
+				return { success: true, jobId: job.id };
 			},
 			{ success: false }
 		);
@@ -114,5 +114,15 @@ export const api = {
 	},
 	async clearLogs(): Promise<{ success: boolean }> {
 		return { success: true };
+	},
+	async updateSaltbox(): Promise<{ success: boolean; jobId?: string }> {
+		return withFallback<{ success: boolean; jobId?: string }>(
+			async () => {
+				const { startJob } = await import('./jobs');
+				const job = startJob('sb', ['update']);
+				return { success: true, jobId: job.id };
+			},
+			{ success: false }
+		);
 	}
 };

@@ -1,6 +1,6 @@
 import { readFile, readdir, access, rm } from 'node:fs/promises';
 import YAML from 'yaml';
-import type { SaltboxApp, AppCatalogEntry, AppCategory } from '$lib/types/app';
+import type { SaltboxApp, AppCatalogEntry, AppCategory, AppSource } from '$lib/types/app';
 import type { Container } from '$lib/types/container';
 import { listContainers } from './docker';
 import { hostExec } from './host-exec';
@@ -108,13 +108,12 @@ export async function getAppCatalog(): Promise<AppCatalogEntry[]> {
 	const installedApps = await getApps();
 	const installedSlugs = new Set(installedApps.map((a) => a.slug));
 
-	// Scan Saltbox roles directory
-	const roleDirs = [
-		`${SALTBOX_PATH}/roles`,
-		`${SALTBOX_SANDBOX_PATH}/roles`
+	const roleDirs: { path: string; source: AppSource }[] = [
+		{ path: `${SALTBOX_PATH}/roles`, source: 'saltbox' },
+		{ path: `${SALTBOX_SANDBOX_PATH}/roles`, source: 'sandbox' }
 	];
 
-	for (const dir of roleDirs) {
+	for (const { path: dir, source } of roleDirs) {
 		if (!(await fileExists(dir))) continue;
 
 		try {
@@ -122,19 +121,20 @@ export async function getAppCatalog(): Promise<AppCatalogEntry[]> {
 			for (const entry of entries) {
 				if (!entry.isDirectory()) continue;
 				const name = entry.name;
-				// Skip internal/utility roles
 				if (name.startsWith('_') || name === 'settings' || name === 'pre_tasks' || name === 'post_tasks') continue;
 
 				const slug = name.toLowerCase().replace(/[^a-z0-9-]/g, '-');
 				if (catalog.some((c) => c.slug === slug)) continue;
 
+				const label = source === 'saltbox' ? 'Saltbox' : 'Sandbox';
 				catalog.push({
 					slug,
 					name: name.charAt(0).toUpperCase() + name.slice(1),
 					category: guessCategory(name),
-					description: `Saltbox role: ${name}`,
+					description: `${label} role: ${name}`,
 					installed: installedSlugs.has(slug),
-					official: dir.includes('saltbox/roles')
+					official: source === 'saltbox',
+					source
 				});
 			}
 		} catch {
