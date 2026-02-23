@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { hostSpawn } from './host-exec';
 
 export interface Job {
 	id: string;
@@ -37,10 +37,7 @@ export function startJob(command: string, args: string[]): Job {
 
 	jobs.set(id, job);
 
-	const proc = spawn(command, args, {
-		stdio: ['ignore', 'pipe', 'pipe'],
-		env: { ...process.env, ANSIBLE_FORCE_COLOR: '0' }
-	});
+	const proc = hostSpawn(command, args);
 
 	const appendOutput = (data: Buffer) => {
 		const lines = data.toString('utf-8').split('\n').filter(Boolean);

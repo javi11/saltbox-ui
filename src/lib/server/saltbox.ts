@@ -1,12 +1,9 @@
 import { readFile, readdir, access, rm } from 'node:fs/promises';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
 import YAML from 'yaml';
 import type { SaltboxApp, AppCatalogEntry, AppCategory } from '$lib/types/app';
 import type { Container } from '$lib/types/container';
 import { listContainers } from './docker';
-
-const exec = promisify(execFile);
+import { hostExec } from './host-exec';
 
 const SALTBOX_PATH = '/srv/git/saltbox';
 const SALTBOX_SANDBOX_PATH = '/opt/sandbox';
@@ -140,7 +137,7 @@ export async function getAppCatalog(): Promise<AppCatalogEntry[]> {
 
 export async function installApp(slug: string): Promise<{ success: boolean; output?: string }> {
 	try {
-		const { stdout, stderr } = await exec('sb', ['install', slug], { timeout: 300000 });
+		const { stdout, stderr } = await hostExec('sb', ['install', slug], { timeout: 300000 });
 		return { success: true, output: stdout || stderr };
 	} catch (e) {
 		return { success: false, output: String(e) };
@@ -148,20 +145,14 @@ export async function installApp(slug: string): Promise<{ success: boolean; outp
 }
 
 export async function uninstallApp(slug: string, deleteData = false): Promise<{ success: boolean; output?: string }> {
-	// Validate slug to prevent path traversal
 	if (!/^[a-z0-9-]+$/.test(slug)) {
 		return { success: false, output: 'Invalid app slug' };
 	}
 	try {
-		// Stop and remove container
-		const { stdout } = await exec('docker', ['rm', '-f', slug], { timeout: 30000 });
+		const { stdout } = await hostExec('docker', ['rm', '-f', slug], { timeout: 30000 });
 
-		// Optionally remove persistent data
 		if (deleteData) {
-			const optPath = `/opt/${slug}`;
-			if (await fileExists(optPath)) {
-				await rm(optPath, { recursive: true, force: true });
-			}
+			await hostExec('rm', ['-rf', `/opt/${slug}`], { timeout: 30000 });
 		}
 
 		return { success: true, output: stdout };
