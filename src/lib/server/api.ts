@@ -10,7 +10,7 @@ import * as saltbox from './saltbox';
 import * as traefik from './traefik';
 import * as activity from './activity';
 
-// Import mock data as fallback
+// Import mock data as fallback (dev only)
 import { installedApps, appCatalog } from '$lib/data/mock/apps';
 import { containers as mockContainers, generateMockLogs } from '$lib/data/mock/containers';
 import { mountTree as mockMountTree, rcloneRemotes as mockRemotes, mergeFSConfig as mockMergeFS } from '$lib/data/mock/storage';
@@ -18,11 +18,15 @@ import { systemHealth as mockHealth, serviceStatuses as mockServices } from '$li
 import { activityEvents as mockActivity } from '$lib/data/mock/activity';
 import { traefikRoutes as mockRoutes, backupHistory as mockBackups } from '$lib/data/mock/traefik';
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 async function withFallback<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
 	try {
 		return await fn();
 	} catch (e) {
-		console.warn(`[saltbox-api] Falling back to mock data:`, e instanceof Error ? e.message : e);
+		console.error(`[saltbox-api] Operation failed:`, e instanceof Error ? e.message : e);
+		if (isProduction) throw e;
+		console.warn(`[saltbox-api] Using mock data (dev mode)`);
 		return fallback;
 	}
 }
@@ -86,7 +90,7 @@ export const api = {
 
 	// Actions
 	async updateAll(): Promise<{ success: boolean }> {
-		return withFallback(
+		return withFallback<{ success: boolean }>(
 			async () => {
 				const { startJob } = await import('./jobs');
 				startJob('sb', ['update']);
@@ -96,7 +100,7 @@ export const api = {
 		);
 	},
 	async backupNow(): Promise<{ success: boolean }> {
-		return withFallback(
+		return withFallback<{ success: boolean }>(
 			async () => {
 				const { startJob } = await import('./jobs');
 				startJob('sb', ['install', 'backup']);

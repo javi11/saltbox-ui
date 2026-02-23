@@ -28,13 +28,23 @@ interface AccountsConfig {
 	user?: { domain?: string; name?: string; email?: string };
 }
 
+const ACCOUNTS_CACHE_TTL_MS = 5 * 60 * 1000;
 let cachedAccounts: AccountsConfig | null = null;
+let accountsCachedAt = 0;
 
 async function getAccounts(): Promise<AccountsConfig> {
-	if (cachedAccounts) return cachedAccounts;
+	if (cachedAccounts && Date.now() - accountsCachedAt < ACCOUNTS_CACHE_TTL_MS) {
+		return cachedAccounts;
+	}
 	try {
 		const content = await readFile(ACCOUNTS_PATH, 'utf-8');
-		cachedAccounts = YAML.parse(content) || {};
+		const parsed = YAML.parse(content, { schema: 'core' });
+		if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+			cachedAccounts = parsed as AccountsConfig;
+		} else {
+			cachedAccounts = {};
+		}
+		accountsCachedAt = Date.now();
 		return cachedAccounts;
 	} catch {
 		return {};
@@ -136,11 +146,15 @@ export async function getAppCatalog(): Promise<AppCatalogEntry[]> {
 }
 
 export async function installApp(slug: string): Promise<{ success: boolean; output?: string }> {
+	if (!/^[a-z0-9-]+$/.test(slug)) {
+		return { success: false, output: 'Invalid app slug' };
+	}
 	try {
 		const { stdout, stderr } = await hostExec('sb', ['install', slug], { timeout: 300000 });
 		return { success: true, output: stdout || stderr };
 	} catch (e) {
-		return { success: false, output: String(e) };
+		console.error('[saltbox] installApp failed:', e);
+		return { success: false, output: 'Installation failed' };
 	}
 }
 
@@ -157,6 +171,7 @@ export async function uninstallApp(slug: string, deleteData = false): Promise<{ 
 
 		return { success: true, output: stdout };
 	} catch (e) {
-		return { success: false, output: String(e) };
+		console.error('[saltbox] uninstallApp failed:', e);
+		return { success: false, output: 'Uninstall failed' };
 	}
 }

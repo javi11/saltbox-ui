@@ -2,7 +2,11 @@ import Docker from 'dockerode';
 import type { Container, ContainerLog, PortMapping } from '$lib/types/container';
 import type { Status } from '$lib/types/common';
 
-const docker = new Docker({ socketPath: '/var/run/docker.sock' });
+const dockerHost = process.env.DOCKER_HOST;
+
+const docker = dockerHost
+	? new Docker({ host: new URL(dockerHost).hostname, port: Number(new URL(dockerHost).port) || 2375 })
+	: new Docker({ socketPath: '/var/run/docker.sock' });
 
 function mapState(state: string): Status {
 	switch (state.toLowerCase()) {
