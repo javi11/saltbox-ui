@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Download, Archive, RotateCw, Trash2, GitBranch } from 'lucide-svelte';
 	import Button from '$lib/components/ui/Button.svelte';
+	import Modal from '$lib/components/ui/Modal.svelte';
 	import { getUI } from '$lib/stores/ui.svelte';
 	import { invalidateAll } from '$app/navigation';
 
@@ -8,6 +9,7 @@
 
 	let updating = $state(false);
 	let updatingSaltbox = $state(false);
+	let showUpdateModal = $state(false);
 
 	async function pollJob(jobId: string, label: string): Promise<boolean> {
 		const POLL_INTERVAL = 3000;
@@ -108,11 +110,43 @@
 				variant="primary"
 				full
 				disabled={updatingSaltbox}
-				onclick={() => handleAction('Update Saltbox', 'updateSaltbox')}
+				onclick={() => (showUpdateModal = true)}
 			>
 				<GitBranch size={14} />
-				{updatingSaltbox ? 'Updating Saltbox...' : 'Update Saltbox'}
+				Update Saltbox
 			</Button>
 		</div>
 	</div>
 </div>
+
+<Modal bind:open={showUpdateModal} title="Update Saltbox">
+	<div class="space-y-4">
+		<p class="text-sm text-text-secondary">
+			This will update Saltbox to the latest version. During the update, <strong class="text-text">all Docker containers will be restarted</strong>, which may cause temporary service interruptions.
+		</p>
+		<p class="text-sm text-text-secondary">
+			The UI may also become temporarily unresponsive while the update is applied. Please wait for the process to complete.
+		</p>
+		<div class="flex justify-end gap-2 pt-2">
+			<Button variant="default" onclick={() => (showUpdateModal = false)}>Cancel</Button>
+			<Button
+				variant="primary"
+				onclick={() => {
+					showUpdateModal = false;
+					handleAction('Update Saltbox', 'updateSaltbox');
+				}}
+			>
+				<GitBranch size={14} />
+				Update
+			</Button>
+		</div>
+	</div>
+</Modal>
+
+{#if updatingSaltbox}
+	<div class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-bg/90 backdrop-blur-sm gap-4">
+		<GitBranch size={40} class="text-primary animate-pulse" />
+		<p class="text-text text-lg font-medium">Updating Saltbox...</p>
+		<p class="text-text-secondary text-sm">All Docker containers are being restarted. Please wait.</p>
+	</div>
+{/if}
