@@ -154,17 +154,17 @@
 				<div class="flex items-start gap-3 p-3 bg-yellow/10 border border-yellow/20 rounded-md">
 					<AlertTriangle size={16} class="text-yellow mt-0.5 shrink-0" />
 					<div class="text-sm text-text-secondary">
-						<span class="text-text font-medium">SALTBOX_UI_DIR not set.</span>
-						Set this environment variable to the directory where saltbox-ui is installed on the host
-						(e.g. <code class="font-mono bg-surface px-1 rounded">/opt/saltbox-ui</code>), then
-						restart the container.
+						<span class="text-text font-medium">Self-update unavailable.</span>
+						Set <code class="font-mono bg-surface px-1 rounded">SALTBOX_UI_DIR</code> to the
+						directory where saltbox-ui is installed on the host
+						(e.g. <code class="font-mono bg-surface px-1 rounded">/opt/saltbox-ui</code>) and
+						restart the container to enable one-click updates.
 					</div>
 				</div>
-			{:else}
-				<!-- Current Version -->
-				<div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+				<!-- Still show version info even when update is not configured -->
+				<div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
 					<div class="bg-bg border border-border rounded-md px-3 py-2">
-						<p class="text-xs text-text-tertiary mb-1">Current Tag</p>
+						<p class="text-xs text-text-tertiary mb-1">Version</p>
 						<p class="text-sm font-mono text-text">{data.version.tag}</p>
 					</div>
 					<div class="bg-bg border border-border rounded-md px-3 py-2">
@@ -172,9 +172,37 @@
 						<p class="text-sm font-mono text-text">{data.version.commit}</p>
 					</div>
 					<div class="bg-bg border border-border rounded-md px-3 py-2">
-						<p class="text-xs text-text-tertiary mb-1">Branch</p>
-						<p class="text-sm font-mono text-text">{data.version.branch}</p>
+						<p class="text-xs text-text-tertiary mb-1">Channel</p>
+						<p class="text-sm font-mono text-text">{data.version.channel}</p>
 					</div>
+					{#if data.version.buildDate}
+						<div class="bg-bg border border-border rounded-md px-3 py-2">
+							<p class="text-xs text-text-tertiary mb-1">Built</p>
+							<p class="text-sm font-mono text-text">{formatDate(data.version.buildDate)}</p>
+						</div>
+					{/if}
+				</div>
+			{:else}
+				<!-- Current Version -->
+				<div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+					<div class="bg-bg border border-border rounded-md px-3 py-2">
+						<p class="text-xs text-text-tertiary mb-1">Version</p>
+						<p class="text-sm font-mono text-text">{data.version.tag}</p>
+					</div>
+					<div class="bg-bg border border-border rounded-md px-3 py-2">
+						<p class="text-xs text-text-tertiary mb-1">Commit</p>
+						<p class="text-sm font-mono text-text">{data.version.commit}</p>
+					</div>
+					<div class="bg-bg border border-border rounded-md px-3 py-2">
+						<p class="text-xs text-text-tertiary mb-1">Channel</p>
+						<p class="text-sm font-mono text-text">{data.version.channel}</p>
+					</div>
+					{#if data.version.buildDate}
+						<div class="bg-bg border border-border rounded-md px-3 py-2">
+							<p class="text-xs text-text-tertiary mb-1">Built</p>
+							<p class="text-sm font-mono text-text">{formatDate(data.version.buildDate)}</p>
+						</div>
+					{/if}
 				</div>
 
 				<!-- Channel Selector -->

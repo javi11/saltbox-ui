@@ -21,7 +21,15 @@ COPY --from=build /app/build build/
 COPY --from=build /app/package.json .
 COPY --from=build /app/node_modules node_modules/
 
-ENV NODE_ENV=production
+ARG BUILD_VERSION=dev
+ARG BUILD_COMMIT=unknown
+ARG BUILD_DATE=unknown
+
+ENV NODE_ENV=production \
+    BUILD_VERSION=$BUILD_VERSION \
+    BUILD_COMMIT=$BUILD_COMMIT \
+    BUILD_DATE=$BUILD_DATE
+
 EXPOSE 3000
 
 CMD ["node", "build/index.js"]

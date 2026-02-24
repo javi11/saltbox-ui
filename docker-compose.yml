@@ -27,6 +27,7 @@ services:
       - saltbox-ui-internal
 
   saltbox-ui:
+    image: ghcr.io/javi11/saltbox-ui:${CHANNEL:-latest}
     build: .
     container_name: saltbox-ui
     restart: unless-stopped
@@ -52,6 +53,9 @@ services:
       - HOST_PROC=/host/proc
       - HOST_SYS=/host/sys
       - HOST_FSTAB=/host/fstab
+      # 'dev' pulls ghcr.io/javi11/saltbox-ui:dev (built from main).
+      # 'latest' (default) pulls the latest stable release image.
+      - CHANNEL=${CHANNEL:-latest}
       # Path to the saltbox-ui project directory on the host — required for self-update.
       # Example: SALTBOX_UI_DIR=/opt/saltbox-ui
       - SALTBOX_UI_DIR=${SALTBOX_UI_DIR:-}

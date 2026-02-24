@@ -1,4 +1,3 @@
-import { hostExec } from './host-exec';
 import { startJob } from './jobs';
 
 const SALTBOX_UI_DIR = process.env.SALTBOX_UI_DIR ?? '';
@@ -8,7 +7,8 @@ export interface SelfVersion {
 	configured: boolean;
 	tag: string;
 	commit: string;
-	branch: string;
+	channel: string;
+	buildDate: string;
 }
 
 export interface LatestRelease {
@@ -18,40 +18,13 @@ export interface LatestRelease {
 }
 
 export async function getSelfVersion(): Promise<SelfVersion> {
-	if (!SALTBOX_UI_DIR) {
-		return { configured: false, tag: 'unknown', commit: 'unknown', branch: 'unknown' };
-	}
-
-	try {
-		const [describeResult, branchResult] = await Promise.all([
-			hostExec('git', ['-C', SALTBOX_UI_DIR, 'describe', '--tags', '--always', '--long'], {
-				timeout: 10_000
-			}),
-			hostExec('git', ['-C', SALTBOX_UI_DIR, 'rev-parse', '--abbrev-ref', 'HEAD'], {
-				timeout: 10_000
-			})
-		]);
-
-		// Format: v1.2.3-4-gabcdef1 (tag-commits-ghash) or just a commit hash if no tags
-		const describe = describeResult.stdout.trim();
-		const branch = branchResult.stdout.trim();
-
-		// Extract short commit from describe or separate call
-		const parts = describe.match(/^(.*)-(\d+)-g([0-9a-f]+)$/);
-		if (parts) {
-			return {
-				configured: true,
-				tag: parts[1],
-				commit: parts[3],
-				branch
-			};
-		}
-
-		// No tags yet — describe returns the raw commit hash
-		return { configured: true, tag: 'untagged', commit: describe.slice(0, 7), branch };
-	} catch {
-		return { configured: true, tag: 'unknown', commit: 'unknown', branch: 'unknown' };
-	}
+	return {
+		configured: !!SALTBOX_UI_DIR,
+		tag: process.env.BUILD_VERSION ?? 'unknown',
+		commit: (process.env.BUILD_COMMIT ?? 'unknown').slice(0, 7),
+		channel: process.env.CHANNEL ?? 'latest',
+		buildDate: process.env.BUILD_DATE ?? ''
+	};
 }
 
 export async function getLatestRelease(): Promise<LatestRelease | null> {
@@ -74,21 +47,13 @@ export function selfUpdate(channel: 'dev' | 'release'): ReturnType<typeof startJ
 	}
 
 	const dir = SALTBOX_UI_DIR;
+	const imageTag = channel === 'dev' ? 'dev' : 'latest';
+	const image = `ghcr.io/${GITHUB_REPO}:${imageTag}`;
 
-	const script =
-		channel === 'dev'
-			? [
-					`git -C '${dir}' fetch origin`,
-					`git -C '${dir}' checkout main`,
-					`git -C '${dir}' pull origin main`,
-					`docker compose -f '${dir}/docker-compose.yml' up -d --build`
-				].join(' && ')
-			: [
-					`git -C '${dir}' fetch --tags origin`,
-					`LATEST=$(git -C '${dir}' describe --tags $(git -C '${dir}' rev-list --tags --max-count=1))`,
-					`git -C '${dir}' checkout "$LATEST"`,
-					`docker compose -f '${dir}/docker-compose.yml' up -d --build`
-				].join(' && ');
+	const script = [
+		`docker pull ${image}`,
+		`CHANNEL=${imageTag} docker compose -f '${dir}/docker-compose.yml' up -d saltbox-ui`
+	].join(' && ');
 
 	return startJob('sh', ['-c', script]);
 }

@@ -43,14 +43,26 @@ node build/index.js
 
 The recommended way to run Saltbox UI on your Saltbox server.
 
+### Docker Image
+
+Pre-built images are published to the GitHub Container Registry (GHCR):
+
+| Image | Updated on | Use for |
+|-------|-----------|---------|
+| `ghcr.io/javi11/saltbox-ui:latest` | Every release | Stable production use |
+| `ghcr.io/javi11/saltbox-ui:dev` | Every push to `main` | Latest development builds |
+
 ### Quick Start
 
 ```bash
-# Set your domain
+# Set your domain (and optionally the channel — defaults to 'latest')
 echo "DOMAIN=yourdomain.com" > .env
 
-# Build and start
+# Pull and start the latest stable image
 docker compose up -d
+
+# Or use the dev image:
+# echo "CHANNEL=dev" >> .env && docker compose up -d
 ```
 
 ### What It Mounts
@@ -82,7 +94,8 @@ The `docker-compose.yml` includes standard Saltbox Traefik labels. The UI will b
 | `HOST_PROC` | `/proc` | Host proc mount path |
 | `HOST_SYS` | `/sys` | Host sys mount path |
 | `HOST_FSTAB` | `/etc/fstab` | Host fstab mount path |
-| `SALTBOX_UI_DIR` | — | **Required for self-update.** Absolute path to the saltbox-ui project directory on the host (e.g. `/opt/saltbox-ui`). Used to run `git pull` and `docker compose up --build` on the host. |
+| `CHANNEL` | `latest` | Image channel to run: `latest` (stable releases) or `dev` (main branch builds). Controls which GHCR tag is pulled on self-update. |
+| `SALTBOX_UI_DIR` | — | **Required for self-update.** Absolute path to the saltbox-ui project directory on the host (e.g. `/opt/saltbox-ui`). Used to invoke `docker compose up -d` after pulling the new image. |
 | `GITHUB_REPO` | `javi11/saltbox-ui` | GitHub repository (`owner/repo`) used to fetch the latest release tag in the Settings page. |
 
 ## Project Structure
