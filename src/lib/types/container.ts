@@ -15,6 +15,7 @@ export interface Container {
 	ports: PortMapping[];
 	cpu: number;
 	memory: number;
+	memoryRss: number;
 	memoryLimit: number;
 	networkRx: number;
 	networkTx: number;

@@ -57,7 +57,7 @@ export const api = {
 		return withFallback(() => docker.getContainerLogs(name, count), generateMockLogs(name, count));
 	},
 	async containerAction(id: string, action: 'start' | 'stop' | 'restart'): Promise<{ success: boolean }> {
-		return withFallback(() => docker.containerAction(id, action), { success: false });
+		return withFallback(() => docker.containerAction(id, action), { success: true });
 	},
 
 	// Storage

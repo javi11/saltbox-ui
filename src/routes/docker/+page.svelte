@@ -2,6 +2,7 @@
 	import ContainerList from '$lib/components/docker/ContainerList.svelte';
 	import LogViewer from '$lib/components/docker/LogViewer.svelte';
 	import MetricCard from '$lib/components/ui/MetricCard.svelte';
+	import { invalidateAll } from '$app/navigation';
 	import { getUI } from '$lib/stores/ui.svelte';
 	import { formatBytes } from '$lib/utils/format';
 	import { Container, Play, Square, Cpu, MemoryStick } from 'lucide-svelte';
@@ -31,6 +32,9 @@
 		const result = await res.json();
 		if (result.success) {
 			ui.addToast(`${name} ${action}ed successfully`, 'success');
+			await invalidateAll();
+		} else {
+			ui.addToast(`Failed to ${action} ${name}`, 'error');
 		}
 	}
 

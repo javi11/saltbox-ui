@@ -26,6 +26,7 @@
 				<th class="text-left py-2.5 px-3 text-xs font-medium text-text-secondary uppercase tracking-wider">State</th>
 				<th class="text-right py-2.5 px-3 text-xs font-medium text-text-secondary uppercase tracking-wider">CPU %</th>
 				<th class="text-right py-2.5 px-3 text-xs font-medium text-text-secondary uppercase tracking-wider">Memory</th>
+			<th class="text-right py-2.5 px-3 text-xs font-medium text-text-secondary uppercase tracking-wider">RSS</th>
 				<th class="text-right py-2.5 px-3 text-xs font-medium text-text-secondary uppercase tracking-wider">Net I/O</th>
 				<th class="text-right py-2.5 px-3 text-xs font-medium text-text-secondary uppercase tracking-wider">Actions</th>
 			</tr>
@@ -38,6 +39,7 @@
 					<td class="py-2.5 px-3"><Badge variant={statusVariant(c.state)}>{c.state}</Badge></td>
 					<td class="py-2.5 px-3 text-right font-mono text-text-secondary">{c.cpu.toFixed(1)}%</td>
 					<td class="py-2.5 px-3 text-right font-mono text-text-secondary">{formatBytes(c.memory)}</td>
+				<td class="py-2.5 px-3 text-right font-mono text-text-secondary">{c.memoryRss > 0 ? formatBytes(c.memoryRss) : '—'}</td>
 					<td class="py-2.5 px-3 text-right font-mono text-xs text-text-tertiary">
 						↓{formatBytes(c.networkRx)} ↑{formatBytes(c.networkTx)}
 					</td>

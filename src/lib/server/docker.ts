@@ -37,6 +37,7 @@ function mapPorts(ports: Docker.Port[]): PortMapping[] {
 interface ContainerStats {
 	cpu: number;
 	memory: number;
+	memoryRss: number;
 	memoryLimit: number;
 	networkRx: number;
 	networkTx: number;
@@ -56,6 +57,7 @@ async function getOneStats(containerId: string): Promise<ContainerStats> {
 		const cpuPercent = systemDelta > 0 ? (cpuDelta / systemDelta) * cpuCount * 100 : 0;
 
 		const memUsage = stats.memory_stats.usage - (stats.memory_stats.stats?.cache || 0);
+		const memoryRss = stats.memory_stats.stats?.rss ?? stats.memory_stats.stats?.anon ?? 0;
 		const memLimit = stats.memory_stats.limit;
 
 		let networkRx = 0;
@@ -71,13 +73,14 @@ async function getOneStats(containerId: string): Promise<ContainerStats> {
 		return {
 			cpu: Math.round(cpuPercent * 100) / 100,
 			memory: memUsage,
+			memoryRss,
 			memoryLimit: memLimit,
 			networkRx,
 			networkTx,
 			pid: stats.pids_stats?.current || 0
 		};
 	} catch {
-		return { cpu: 0, memory: 0, memoryLimit: 0, networkRx: 0, networkTx: 0, pid: 0 };
+		return { cpu: 0, memory: 0, memoryRss: 0, memoryLimit: 0, networkRx: 0, networkTx: 0, pid: 0 };
 	}
 }
 
@@ -87,7 +90,7 @@ export async function listContainers(): Promise<Container[]> {
 	const results = await Promise.all(
 		raw.map(async (c) => {
 			const stats =
-				c.State === 'running' ? await getOneStats(c.Id) : { cpu: 0, memory: 0, memoryLimit: 0, networkRx: 0, networkTx: 0, pid: 0 };
+				c.State === 'running' ? await getOneStats(c.Id) : { cpu: 0, memory: 0, memoryRss: 0, memoryLimit: 0, networkRx: 0, networkTx: 0, pid: 0 };
 
 			const container: Container = {
 				id: c.Id.slice(0, 12),
