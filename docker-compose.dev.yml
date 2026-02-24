@@ -1,0 +1,4 @@
+services:
+  saltbox-ui:
+    build: .
+    image: saltbox-ui:dev

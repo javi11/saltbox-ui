@@ -28,7 +28,6 @@ services:
 
   saltbox-ui:
     image: ghcr.io/javi11/saltbox-ui:${CHANNEL:-latest}
-    build: .
     container_name: saltbox-ui
     restart: unless-stopped
     privileged: true
