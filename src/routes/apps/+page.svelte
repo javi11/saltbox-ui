@@ -8,7 +8,7 @@
 	import { getUI } from '$lib/stores/ui.svelte';
 	import { Plus, LayoutGrid, List } from 'lucide-svelte';
 	import { invalidateAll } from '$app/navigation';
-	import type { AppCategory } from '$lib/types/app';
+	import type { AppCategory, CustomAppDefinition } from '$lib/types/app';
 
 	let { data } = $props();
 	const store = getAppsStore();
@@ -87,6 +87,47 @@
 			ui.addToast(`Failed to install ${slug}`, 'error');
 		}
 	}
+
+	async function handleCreateCustomApp(def: CustomAppDefinition) {
+		const res = await fetch('/api/custom-apps', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(def)
+		});
+		const result = await res.json();
+		if (result.success) {
+			ui.addToast(`Custom app "${def.name}" added`, 'success');
+			await invalidateAll();
+		} else {
+			throw new Error(result.error ?? 'Failed to create custom app');
+		}
+	}
+
+	async function handleUpdateCustomApp(slug: string, def: CustomAppDefinition) {
+		const res = await fetch(`/api/custom-apps/${slug}`, {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(def)
+		});
+		const result = await res.json();
+		if (result.success) {
+			ui.addToast(`Custom app "${def.name}" updated`, 'success');
+			await invalidateAll();
+		} else {
+			throw new Error(result.error ?? 'Failed to update custom app');
+		}
+	}
+
+	async function handleDeleteCustomApp(slug: string) {
+		const res = await fetch(`/api/custom-apps/${slug}`, { method: 'DELETE' });
+		const result = await res.json();
+		if (result.success) {
+			ui.addToast(`Custom app "${slug}" removed`, 'success');
+			await invalidateAll();
+		} else {
+			ui.addToast(result.error ?? `Failed to remove "${slug}"`, 'error');
+		}
+	}
 </script>
 
 <svelte:head>
@@ -126,5 +167,12 @@
 
 	<AppGrid apps={filtered} onaction={handleAction} {updatingSlug} />
 
-	<AppCatalog catalog={data.catalog} bind:open={catalogOpen} oninstall={handleInstall} />
+	<AppCatalog
+		catalog={data.catalog}
+		bind:open={catalogOpen}
+		oninstall={handleInstall}
+		oncreate={handleCreateCustomApp}
+		onupdate={handleUpdateCustomApp}
+		ondelete={handleDeleteCustomApp}
+	/>
 </div>

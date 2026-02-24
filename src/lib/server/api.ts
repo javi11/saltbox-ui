@@ -1,4 +1,4 @@
-import type { SaltboxApp, AppCatalogEntry } from '$lib/types/app';
+import type { SaltboxApp, AppCatalogEntry, CustomAppDefinition } from '$lib/types/app';
 import type { Container, ContainerLog } from '$lib/types/container';
 import type { MountPoint, RcloneRemote, MergeFSConfig } from '$lib/types/storage';
 import type { SystemHealth, TraefikRoute, BackupEntry, ActivityEvent, ServiceStatus } from '$lib/types/system';
@@ -9,6 +9,7 @@ import * as storage from './storage';
 import * as saltbox from './saltbox';
 import * as traefik from './traefik';
 import * as activity from './activity';
+import * as customApps from './custom-apps';
 
 // Import mock data as fallback (dev only)
 import { installedApps, appCatalog } from '$lib/data/mock/apps';
@@ -42,8 +43,13 @@ export const api = {
 	async getCatalog(): Promise<AppCatalogEntry[]> {
 		return withFallback(() => saltbox.getAppCatalog(), appCatalog);
 	},
-	async installApp(slug: string): Promise<{ success: boolean }> {
-		return withFallback(() => saltbox.installApp(slug), { success: false });
+	async installApp(slug: string): Promise<{ success: boolean; output?: string }> {
+		return withFallback(async () => {
+			const custom = await customApps.getCustomApps();
+			const def = custom.find((a) => a.slug === slug);
+			if (def) return customApps.installCustomApp(def);
+			return saltbox.installApp(slug);
+		}, { success: false });
 	},
 	async uninstallApp(slug: string, deleteData = false): Promise<{ success: boolean }> {
 		return withFallback(() => saltbox.uninstallApp(slug, deleteData), { success: false });
@@ -57,6 +63,20 @@ export const api = {
 			},
 			{ success: false }
 		);
+	},
+
+	// Custom apps
+	async getCustomApps(): Promise<CustomAppDefinition[]> {
+		return withFallback(() => customApps.getCustomApps(), []);
+	},
+	async createCustomApp(def: CustomAppDefinition): Promise<{ success: boolean; error?: string }> {
+		return withFallback(() => customApps.createCustomApp(def), { success: false });
+	},
+	async updateCustomApp(slug: string, def: CustomAppDefinition): Promise<{ success: boolean; error?: string }> {
+		return withFallback(() => customApps.updateCustomApp(slug, def), { success: false });
+	},
+	async deleteCustomApp(slug: string): Promise<{ success: boolean; error?: string }> {
+		return withFallback(() => customApps.deleteCustomApp(slug), { success: false });
 	},
 
 	// Containers

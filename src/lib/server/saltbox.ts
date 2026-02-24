@@ -4,6 +4,7 @@ import type { SaltboxApp, AppCatalogEntry, AppCategory, AppSource } from '$lib/t
 import type { Container } from '$lib/types/container';
 import { listContainers } from './docker';
 import { hostExec } from './host-exec';
+import { getCustomApps } from './custom-apps';
 
 const SALTBOX_PATH = '/srv/git/saltbox';
 const SALTBOX_SANDBOX_PATH = '/opt/sandbox';
@@ -140,6 +141,20 @@ export async function getAppCatalog(): Promise<AppCatalogEntry[]> {
 		} catch {
 			// directory not readable
 		}
+	}
+
+	const customApps = await getCustomApps();
+	for (const custom of customApps) {
+		if (catalog.some((c) => c.slug === custom.slug)) continue;
+		catalog.push({
+			slug: custom.slug,
+			name: custom.name,
+			category: custom.category,
+			description: custom.description || `Custom app: ${custom.image}`,
+			installed: installedSlugs.has(custom.slug),
+			official: false,
+			source: 'custom'
+		});
 	}
 
 	return catalog.sort((a, b) => a.name.localeCompare(b.name));

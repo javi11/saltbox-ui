@@ -19,7 +19,7 @@ export interface SaltboxApp {
 	docsUrl?: string;
 }
 
-export type AppSource = 'saltbox' | 'sandbox';
+export type AppSource = 'saltbox' | 'sandbox' | 'custom';
 
 export interface AppCatalogEntry {
 	slug: string;
@@ -29,4 +29,16 @@ export interface AppCatalogEntry {
 	installed: boolean;
 	official: boolean;
 	source: AppSource;
+}
+
+export interface CustomAppDefinition {
+	slug: string;
+	name: string;
+	category: AppCategory;
+	description: string;
+	image: string;
+	port?: number;
+	volumes?: string[];
+	environment?: Record<string, string>;
+	restart?: 'unless-stopped' | 'always' | 'on-failure' | 'no';
 }

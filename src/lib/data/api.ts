@@ -1,4 +1,4 @@
-import type { SaltboxApp, AppCatalogEntry } from '$lib/types/app';
+import type { SaltboxApp, AppCatalogEntry, CustomAppDefinition } from '$lib/types/app';
 import type { Container, ContainerLog } from '$lib/types/container';
 import type { MountPoint, RcloneRemote, MergeFSConfig } from '$lib/types/storage';
 import type { SystemHealth, TraefikRoute, BackupEntry, ActivityEvent, ServiceStatus } from '$lib/types/system';
@@ -12,6 +12,8 @@ import { traefikRoutes, backupHistory } from './mock/traefik';
 function delay(ms = 100): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+let mockCustomApps: CustomAppDefinition[] = [];
 
 export const api = {
 	// Apps
@@ -34,6 +36,33 @@ export const api = {
 	async uninstallApp(slug: string): Promise<{ success: boolean }> {
 		await delay(1500);
 		return { success: true };
+	},
+
+	// Custom apps (in-memory mock store)
+	async getCustomApps(): Promise<CustomAppDefinition[]> {
+		await delay();
+		return mockCustomApps;
+	},
+	async createCustomApp(def: CustomAppDefinition): Promise<{ success: boolean; error?: string }> {
+		await delay(300);
+		if (mockCustomApps.some((a) => a.slug === def.slug)) {
+			return { success: false, error: `An app with slug "${def.slug}" already exists` };
+		}
+		mockCustomApps.push(def);
+		return { success: true };
+	},
+	async updateCustomApp(slug: string, def: CustomAppDefinition): Promise<{ success: boolean; error?: string }> {
+		await delay(300);
+		const idx = mockCustomApps.findIndex((a) => a.slug === slug);
+		if (idx === -1) return { success: false, error: `App "${slug}" not found` };
+		mockCustomApps[idx] = def;
+		return { success: true };
+	},
+	async deleteCustomApp(slug: string): Promise<{ success: boolean; error?: string }> {
+		await delay(300);
+		const before = mockCustomApps.length;
+		mockCustomApps = mockCustomApps.filter((a) => a.slug !== slug);
+		return { success: mockCustomApps.length < before };
 	},
 
 	// Containers
