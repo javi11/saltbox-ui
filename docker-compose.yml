@@ -68,6 +68,13 @@ services:
       - traefik.http.routers.saltbox-ui.tls.certresolver=cfdns
       - traefik.http.routers.saltbox-ui.middlewares=globalHeaders@file,secureHeaders@file,authelia@docker
       - traefik.http.services.saltbox-ui.loadbalancer.server.port=3000
+      - traefik.http.routers.saltbox-ui-health.rule=Host(`saltbox-ui.${DOMAIN}`) && Path(`/health`)
+      - traefik.http.routers.saltbox-ui-health.entrypoints=websecure
+      - traefik.http.routers.saltbox-ui-health.tls=true
+      - traefik.http.routers.saltbox-ui-health.tls.certresolver=cfdns
+      - traefik.http.routers.saltbox-ui-health.middlewares=globalHeaders@file
+      - traefik.http.routers.saltbox-ui-health.service=saltbox-ui
+      - traefik.http.routers.saltbox-ui-health.priority=10
       - com.github.saltbox.saltbox_managed=true
 
 volumes:
