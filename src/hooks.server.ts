@@ -59,6 +59,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const { request, url } = event;
 	const method = request.method;
 
+	// --- 0. Health check bypass (Docker HEALTHCHECK calls this directly) ----
+	if (url.pathname === '/health') {
+		return new Response('ok', { status: 200 });
+	}
+
 	// --- 1. Authelia header check (skip in dev for local testing) -----------
 	const remoteUser = request.headers.get('remote-user');
 
