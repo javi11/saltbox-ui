@@ -13,7 +13,7 @@ export async function getActivity(limit = 50): Promise<ActivityEvent[]> {
 
 	// Docker events (last 24h)
 	try {
-		const since = Math.floor(Date.now() / 1000) - 86400;
+		const since = Math.floor(Date.now() / 1000) - 21600;
 		const { stdout } = await exec(
 			'docker',
 			['events', '--since', String(since), '--until', String(Math.floor(Date.now() / 1000)), '--format', '{{json .}}'],

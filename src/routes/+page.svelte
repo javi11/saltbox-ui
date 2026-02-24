@@ -45,7 +45,11 @@
 	<!-- Bottom grid -->
 	<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
 		<div class="lg:col-span-2">
-			<ActivityFeed events={data.activity} />
+			{#await data.activity}
+				<div class="bg-surface border border-border rounded-lg animate-pulse h-48"></div>
+			{:then events}
+				<ActivityFeed {events} />
+			{/await}
 		</div>
 		<div class="space-y-4">
 			<StorageOverview

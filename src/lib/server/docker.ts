@@ -84,11 +84,27 @@ async function getOneStats(containerId: string): Promise<ContainerStats> {
 	}
 }
 
+async function withConcurrency<T>(limit: number, fns: (() => Promise<T>)[]): Promise<T[]> {
+	const results: T[] = new Array(fns.length);
+	const active = new Set<Promise<void>>();
+	for (let i = 0; i < fns.length; i++) {
+		const idx = i;
+		const p: Promise<void> = fns[idx]()
+			.then((r) => { results[idx] = r; })
+			.finally(() => active.delete(p));
+		active.add(p);
+		if (active.size >= limit) await Promise.race(active);
+	}
+	await Promise.all(active);
+	return results;
+}
+
 export async function listContainers(): Promise<Container[]> {
 	const raw = await docker.listContainers({ all: true });
 
-	const results = await Promise.all(
-		raw.map(async (c) => {
+	const results = await withConcurrency(
+		10,
+		raw.map((c) => async () => {
 			const stats =
 				c.State === 'running' ? await getOneStats(c.Id) : { cpu: 0, memory: 0, memoryRss: 0, memoryLimit: 0, networkRx: 0, networkTx: 0, pid: 0 };
 
