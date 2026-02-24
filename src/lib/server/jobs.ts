@@ -27,7 +27,7 @@ export function getJob(id: string): Job | undefined {
 	return jobs.get(id);
 }
 
-export function startJob(command: string, args: string[]): Job {
+export function startJob(command: string, args: string[], options?: { tty?: boolean }): Job {
 	const id = randomUUID();
 	const job: Job = {
 		id,
@@ -40,7 +40,7 @@ export function startJob(command: string, args: string[]): Job {
 
 	jobs.set(id, job);
 
-	const proc = hostSpawn(command, args, { tty: true });
+	const proc = hostSpawn(command, args, { tty: options?.tty ?? true });
 
 	// Auto-answer any interactive prompts (e.g. migration confirmations) then
 	// close stdin so Bubble Tea TUI viewers exit on EOF.
