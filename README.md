@@ -94,9 +94,8 @@ The `docker-compose.yml` includes standard Saltbox Traefik labels. The UI will b
 | `HOST_PROC` | `/proc` | Host proc mount path |
 | `HOST_SYS` | `/sys` | Host sys mount path |
 | `HOST_FSTAB` | `/etc/fstab` | Host fstab mount path |
-| `CHANNEL` | `latest` | Image channel to run: `latest` (stable releases) or `dev` (main branch builds). Controls which GHCR tag is pulled on self-update. |
-| `SALTBOX_UI_DIR` | — | **Required for self-update.** Absolute path to the saltbox-ui project directory on the host (e.g. `/opt/saltbox-ui`). Used to invoke `docker compose up -d` after pulling the new image. |
-| `GITHUB_REPO` | `javi11/saltbox-ui` | GitHub repository (`owner/repo`) used to fetch the latest release tag in the Settings page. |
+| `CHANNEL` | `latest` | Image channel: `latest` (stable releases) or `dev` (main branch builds). Shown in the Settings version panel and used as the pulled image tag. |
+| `GITHUB_REPO` | `javi11/saltbox-ui` | GitHub repository (`owner/repo`) queried for version info in the Settings page. |
 
 ## Project Structure
 

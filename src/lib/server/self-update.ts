@@ -1,10 +1,6 @@
-import { startJob } from './jobs';
-
-const SALTBOX_UI_DIR = process.env.SALTBOX_UI_DIR ?? '';
 const GITHUB_REPO = process.env.GITHUB_REPO ?? 'javi11/saltbox-ui';
 
 export interface SelfVersion {
-	configured: boolean;
 	tag: string;
 	commit: string;
 	channel: string;
@@ -17,9 +13,16 @@ export interface LatestRelease {
 	url: string;
 }
 
-export async function getSelfVersion(): Promise<SelfVersion> {
+export interface VersionStatus {
+	current: SelfVersion;
+	latestRelease: LatestRelease | null;
+	latestDevCommit: string | null;
+	outdated: boolean;
+	isLocalBuild: boolean;
+}
+
+export function getSelfVersion(): SelfVersion {
 	return {
-		configured: !!SALTBOX_UI_DIR,
 		tag: process.env.BUILD_VERSION ?? 'unknown',
 		commit: (process.env.BUILD_COMMIT ?? 'unknown').slice(0, 7),
 		channel: process.env.CHANNEL ?? 'latest',
@@ -41,19 +44,37 @@ export async function getLatestRelease(): Promise<LatestRelease | null> {
 	}
 }
 
-export function selfUpdate(channel: 'dev' | 'release'): ReturnType<typeof startJob> {
-	if (!SALTBOX_UI_DIR) {
-		throw new Error('SALTBOX_UI_DIR is not configured');
+export async function getLatestDevCommit(): Promise<string | null> {
+	try {
+		const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/commits/main`, {
+			headers: { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
+			signal: AbortSignal.timeout(8_000)
+		});
+		if (!res.ok) return null;
+		const data = (await res.json()) as { sha: string };
+		return data.sha.slice(0, 7);
+	} catch {
+		return null;
+	}
+}
+
+export async function getVersionStatus(): Promise<VersionStatus> {
+	const current = getSelfVersion();
+	const isLocalBuild = current.tag === 'unknown' || current.commit === 'unknown';
+
+	const [latestRelease, latestDevCommit] = await Promise.all([
+		getLatestRelease(),
+		getLatestDevCommit()
+	]);
+
+	let outdated = false;
+	if (!isLocalBuild) {
+		if (current.channel === 'dev') {
+			outdated = latestDevCommit !== null && latestDevCommit !== current.commit;
+		} else {
+			outdated = latestRelease !== null && latestRelease.tag !== current.tag;
+		}
 	}
 
-	const dir = SALTBOX_UI_DIR;
-	const imageTag = channel === 'dev' ? 'dev' : 'latest';
-	const image = `ghcr.io/${GITHUB_REPO}:${imageTag}`;
-
-	const script = [
-		`docker pull ${image}`,
-		`CHANNEL=${imageTag} docker compose -f '${dir}/docker-compose.yml' up -d saltbox-ui`
-	].join(' && ');
-
-	return startJob('sh', ['-c', script]);
+	return { current, latestRelease, latestDevCommit, outdated, isLocalBuild };
 }
