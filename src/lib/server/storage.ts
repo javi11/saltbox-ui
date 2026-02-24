@@ -7,6 +7,20 @@ const exec = promisify(execFile);
 
 const FSTAB_PATH = process.env.HOST_FSTAB || '/etc/fstab';
 
+async function execFS(cmd: string, args: string[]): Promise<string> {
+	const hostProc = process.env.HOST_PROC;
+	if (hostProc) {
+		const { stdout } = await exec(
+			'nsenter',
+			[`--mount=${hostProc}/1/ns/mnt`, '--', cmd, ...args],
+			{ timeout: 5000 }
+		);
+		return stdout;
+	}
+	const { stdout } = await exec(cmd, args, { timeout: 5000 });
+	return stdout;
+}
+
 function classifyFs(fstype: string, source: string): MountPoint['type'] {
 	if (fstype === 'fuse.mergerfs') return 'union';
 	if (fstype.startsWith('fuse.rclone') || fstype === 'fuse' || source.includes(':')) return 'remote';
@@ -37,10 +51,10 @@ function parseFindmntEntry(entry: FindmntEntry): MountPoint {
 
 export async function getMountTree(): Promise<MountPoint> {
 	try {
-		const { stdout } = await exec('findmnt', [
+		const stdout = await execFS('findmnt', [
 			'--json', '--bytes', '--output', 'TARGET,SOURCE,FSTYPE,SIZE,USED,AVAIL',
 			'-t', 'ext4,xfs,btrfs,fuse.mergerfs,fuse.rclone,fuse,nfs,nfs4,cifs'
-		], { timeout: 5000 });
+		]);
 
 		const data = JSON.parse(stdout);
 		const entries: FindmntEntry[] = data.filesystems || [];
@@ -65,7 +79,7 @@ async function getMountTreeFallback(): Promise<MountPoint> {
 	const children: MountPoint[] = [];
 
 	try {
-		const { stdout } = await exec('df', ['--output=source,size,used,avail,target', '-B1'], { timeout: 5000 });
+		const stdout = await execFS('df', ['--output=source,size,used,avail,target', '-B1']);
 		const lines = stdout.trim().split('\n').slice(1);
 
 		for (const line of lines) {
