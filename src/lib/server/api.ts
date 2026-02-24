@@ -48,8 +48,15 @@ export const api = {
 	async uninstallApp(slug: string, deleteData = false): Promise<{ success: boolean }> {
 		return withFallback(() => saltbox.uninstallApp(slug, deleteData), { success: false });
 	},
-	async updateApp(slug: string): Promise<{ success: boolean }> {
-		return withFallback(() => saltbox.updateApp(slug), { success: false });
+	async updateApp(slug: string): Promise<{ success: boolean; jobId?: string }> {
+		return withFallback<{ success: boolean; jobId?: string }>(
+			async () => {
+				const { startJob } = await import('./jobs');
+				const job = startJob('sb', ['install', slug]);
+				return { success: true, jobId: job.id };
+			},
+			{ success: false }
+		);
 	},
 
 	// Containers
