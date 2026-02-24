@@ -6,12 +6,22 @@
 	import MetricCard from '$lib/components/ui/MetricCard.svelte';
 	import { formatBytes } from '$lib/utils/format';
 	import { HardDrive, Cloud, GitMerge, Database } from 'lucide-svelte';
+	import type { MountPoint } from '$lib/types/storage';
 
 	let { data } = $props();
 
-	const local = $derived(data.mountTree.children?.find(c => c.path === '/mnt/local'));
-	const remote = $derived(data.mountTree.children?.find(c => c.path === '/mnt/remote'));
-	const union = $derived(data.mountTree.children?.find(c => c.path === '/mnt/unionfs'));
+	function findMount(node: MountPoint, path: string): MountPoint | undefined {
+		if (node.path === path) return node;
+		for (const child of node.children ?? []) {
+			const found = findMount(child, path);
+			if (found) return found;
+		}
+		return undefined;
+	}
+
+	const local = $derived(findMount(data.mountTree, '/mnt/local'));
+	const remote = $derived(findMount(data.mountTree, '/mnt/remote'));
+	const union = $derived(findMount(data.mountTree, '/mnt/unionfs'));
 </script>
 
 <svelte:head>
