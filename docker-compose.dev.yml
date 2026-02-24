@@ -1,4 +1,84 @@
 services:
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    container_name: saltbox-ui-docker-proxy
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      # Read-only access
+      CONTAINERS: 1
+      IMAGES: 0
+      NETWORKS: 0
+      VOLUMES: 0
+      SERVICES: 0
+      TASKS: 0
+      INFO: 1
+      EVENTS: 1
+      # Deny dangerous write operations
+      POST: 1
+      BUILD: 0
+      COMMIT: 0
+      EXEC: 0
+      ALLOW_START: 1
+      ALLOW_STOP: 1
+      ALLOW_RESTARTS: 1
+    networks:
+      - saltbox-ui-internal
+
   saltbox-ui:
+    image: ghcr.io/javi11/saltbox-ui:${CHANNEL:-latest}
     build: .
-    image: saltbox-ui:dev
+    container_name: saltbox-ui
+    restart: unless-stopped
+    privileged: true
+    pid: host
+    depends_on:
+      - docker-socket-proxy
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /etc/fstab:/host/fstab:ro
+      - /srv/git/saltbox:/srv/git/saltbox:ro
+      - /opt/saltbox_backup:/opt/saltbox_backup:ro
+      - /opt/sandbox:/opt/sandbox:ro
+      - saltbox-ui-audit:/var/log/saltbox-ui
+    environment:
+      - PORT=3000
+      - HOST=0.0.0.0
+      - NODE_ENV=production
+      - ORIGIN=https://saltbox-ui.${DOMAIN}
+      - TRAEFIK_API_URL=http://traefik:8080
+      - DOCKER_HOST=tcp://docker-socket-proxy:2375
+      - HOST_PROC=/host/proc
+      - HOST_SYS=/host/sys
+      - HOST_FSTAB=/host/fstab
+      # 'dev' pulls ghcr.io/javi11/saltbox-ui:dev (built from main).
+      # 'latest' (default) pulls the latest stable release image.
+      - CHANNEL=${CHANNEL:-latest}
+      # Path to the saltbox-ui project directory on the host — required for self-update.
+      # Example: SALTBOX_UI_DIR=/opt/saltbox-ui
+      - SALTBOX_UI_DIR=${SALTBOX_UI_DIR:-}
+      # GitHub repo used to fetch the latest release tag (optional, defaults to javi11/saltbox-ui).
+      - GITHUB_REPO=${GITHUB_REPO:-javi11/saltbox-ui}
+    networks:
+      - saltbox
+      - saltbox-ui-internal
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.saltbox-ui.rule=Host(`saltbox-ui.${DOMAIN}`)
+      - traefik.http.routers.saltbox-ui.entrypoints=websecure
+      - traefik.http.routers.saltbox-ui.tls=true
+      - traefik.http.routers.saltbox-ui.tls.certresolver=cfdns
+      - traefik.http.routers.saltbox-ui.middlewares=globalHeaders@file,secureHeaders@file,authelia@docker
+      - traefik.http.services.saltbox-ui.loadbalancer.server.port=3000
+      - com.github.saltbox.saltbox_managed=true
+
+volumes:
+  saltbox-ui-audit:
+
+networks:
+  saltbox:
+    external: true
+  saltbox-ui-internal:
+    internal: true
