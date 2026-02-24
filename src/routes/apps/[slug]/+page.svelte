@@ -27,7 +27,24 @@
 		}
 	}
 
-	async function handleAction(action: 'start' | 'stop' | 'restart') {
+	async function handleAction(action: 'start' | 'stop' | 'restart' | 'update') {
+		if (action === 'update') {
+			ui.addToast(`Updating ${data.app.name}...`, 'info');
+			try {
+				const res = await fetch(`/api/apps/${data.app.slug}/update`, { method: 'POST' });
+				const result = await res.json();
+				if (result.success) {
+					ui.addToast(`${data.app.name} updated successfully`, 'success');
+					await invalidateAll();
+				} else {
+					ui.addToast(`Failed to update ${data.app.name}`, 'error');
+				}
+			} catch {
+				ui.addToast(`Failed to update ${data.app.name}`, 'error');
+			}
+			return;
+		}
+
 		ui.addToast(`${action.charAt(0).toUpperCase() + action.slice(1)}ing ${data.app.name}...`, 'info');
 		try {
 			const res = await fetch(`/api/apps/${data.app.slug}/action`, {

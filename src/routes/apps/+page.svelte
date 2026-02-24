@@ -24,8 +24,24 @@
 		})
 	);
 
-	function handleAction(action: string, slug: string) {
-		ui.addToast(`${action} ${slug}...`, 'info');
+	async function handleAction(action: string, slug: string) {
+		if (action === 'update') {
+			ui.addToast(`Updating ${slug}...`, 'info');
+			try {
+				const res = await fetch(`/api/apps/${slug}/update`, { method: 'POST' });
+				const result = await res.json();
+				if (result.success) {
+					ui.addToast(`${slug} updated successfully`, 'success');
+					await invalidateAll();
+				} else {
+					ui.addToast(`Failed to update ${slug}`, 'error');
+				}
+			} catch {
+				ui.addToast(`Failed to update ${slug}`, 'error');
+			}
+		} else {
+			ui.addToast(`${action} ${slug}...`, 'info');
+		}
 	}
 
 	async function handleInstall(slug: string) {

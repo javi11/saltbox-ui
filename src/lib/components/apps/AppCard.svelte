@@ -3,7 +3,7 @@
 	import { STATUS_CONFIG, CATEGORY_LABELS } from '$lib/utils/constants';
 	import { formatBytes } from '$lib/utils/format';
 	import Badge from '$lib/components/ui/Badge.svelte';
-	import { ExternalLink, RotateCw, Square, Play } from 'lucide-svelte';
+	import { ExternalLink, RotateCw, Square, Play, RefreshCcw } from 'lucide-svelte';
 
 	let { app, onaction }: { app: SaltboxApp; onaction?: (action: string, slug: string) => void } = $props();
 
@@ -66,5 +66,8 @@
 				<Play size={14} />
 			</button>
 		{/if}
+		<button class="p-1.5 rounded text-text-tertiary hover:text-amber hover:bg-surface-hover transition-colors cursor-pointer ml-auto" onclick={(e) => { e.stopPropagation(); e.preventDefault(); onaction?.('update', app.slug); }} title="Update">
+			<RefreshCcw size={14} />
+		</button>
 	</div>
 </a>

@@ -7,7 +7,7 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import Card from '$lib/components/ui/Card.svelte';
 	import ProgressBar from '$lib/components/ui/ProgressBar.svelte';
-	import { ExternalLink, RotateCw, Square, Play, ArrowLeft, Trash2 } from 'lucide-svelte';
+	import { ExternalLink, RotateCw, Square, Play, ArrowLeft, Trash2, RefreshCcw } from 'lucide-svelte';
 
 	let {
 		app,
@@ -17,7 +17,7 @@
 	}: {
 		app: SaltboxApp;
 		logs?: ContainerLog[];
-		onaction?: (action: 'start' | 'stop' | 'restart') => void;
+		onaction?: (action: 'start' | 'stop' | 'restart' | 'update') => void;
 		ondelete?: (deleteData: boolean) => void;
 	} = $props();
 
@@ -56,6 +56,7 @@
 					<ExternalLink size={14} /> Open
 				</Button>
 			{/if}
+			<Button variant="default" onclick={() => onaction?.('update')}><RefreshCcw size={14} /> Update</Button>
 			{#if app.status === 'running'}
 				<Button variant="default" onclick={() => onaction?.('restart')}><RotateCw size={14} /> Restart</Button>
 				<Button variant="danger" onclick={() => onaction?.('stop')}><Square size={14} /> Stop</Button>

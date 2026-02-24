@@ -158,6 +158,19 @@ export async function installApp(slug: string): Promise<{ success: boolean; outp
 	}
 }
 
+export async function updateApp(slug: string): Promise<{ success: boolean; output?: string }> {
+	if (!/^[a-z0-9-]+$/.test(slug)) {
+		return { success: false, output: 'Invalid app slug' };
+	}
+	try {
+		const { stdout, stderr } = await hostExec('sb', ['install', slug], { timeout: 300000 });
+		return { success: true, output: stdout || stderr };
+	} catch (e) {
+		console.error('[saltbox] updateApp failed:', e);
+		return { success: false, output: 'Update failed' };
+	}
+}
+
 export async function uninstallApp(slug: string, deleteData = false): Promise<{ success: boolean; output?: string }> {
 	if (!/^[a-z0-9-]+$/.test(slug)) {
 		return { success: false, output: 'Invalid app slug' };
