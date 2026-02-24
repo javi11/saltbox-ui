@@ -6,6 +6,7 @@
 
 	let { data } = $props();
 	const ui = getUI();
+	let isUpdating = $state(false);
 
 	async function handleDelete(deleteData: boolean) {
 		ui.addToast(`Deleting ${data.app.name}...`, 'info');
@@ -55,6 +56,7 @@
 	async function handleAction(action: 'start' | 'stop' | 'restart' | 'update') {
 		if (action === 'update') {
 			ui.addToast(`Updating ${data.app.name}...`, 'info');
+			isUpdating = true;
 			try {
 				const res = await fetch(`/api/apps/${data.app.slug}/update`, { method: 'POST' });
 				const result = await res.json();
@@ -65,6 +67,8 @@
 				}
 			} catch {
 				ui.addToast(`Failed to update ${data.app.name}`, 'error');
+			} finally {
+				isUpdating = false;
 			}
 			return;
 		}
@@ -93,4 +97,4 @@
 	<title>{data.app.name} — Saltbox</title>
 </svelte:head>
 
-<AppDetail app={data.app} logs={data.logs} onaction={handleAction} ondelete={handleDelete} />
+<AppDetail app={data.app} logs={data.logs} onaction={handleAction} ondelete={handleDelete} {isUpdating} />

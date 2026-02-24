@@ -2,7 +2,7 @@
 	import type { SaltboxApp } from '$lib/types/app';
 	import AppCard from './AppCard.svelte';
 
-	let { apps, onaction }: { apps: SaltboxApp[]; onaction?: (action: string, slug: string) => void } = $props();
+	let { apps, onaction, updatingSlug = null }: { apps: SaltboxApp[]; onaction?: (action: string, slug: string) => void; updatingSlug?: string | null } = $props();
 </script>
 
 {#if apps.length === 0}
@@ -12,7 +12,7 @@
 {:else}
 	<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
 		{#each apps as app (app.slug)}
-			<AppCard {app} {onaction} />
+			<AppCard {app} {onaction} isUpdating={updatingSlug === app.slug} />
 		{/each}
 	</div>
 {/if}

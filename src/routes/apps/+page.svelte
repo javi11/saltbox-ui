@@ -15,6 +15,7 @@
 	const ui = getUI();
 
 	let catalogOpen = $state(false);
+	let updatingSlug = $state<string | null>(null);
 
 	const filtered = $derived(
 		data.apps.filter((app) => {
@@ -52,6 +53,7 @@
 	async function handleAction(action: string, slug: string) {
 		if (action === 'update') {
 			ui.addToast(`Updating ${slug}...`, 'info');
+			updatingSlug = slug;
 			try {
 				const res = await fetch(`/api/apps/${slug}/update`, { method: 'POST' });
 				const result = await res.json();
@@ -62,6 +64,8 @@
 				}
 			} catch {
 				ui.addToast(`Failed to update ${slug}`, 'error');
+			} finally {
+				updatingSlug = null;
 			}
 		} else {
 			ui.addToast(`${action} ${slug}...`, 'info');
@@ -120,7 +124,7 @@
 		<CategoryFilter bind:active={store.activeCategory} />
 	</div>
 
-	<AppGrid apps={filtered} onaction={handleAction} />
+	<AppGrid apps={filtered} onaction={handleAction} {updatingSlug} />
 
 	<AppCatalog catalog={data.catalog} bind:open={catalogOpen} oninstall={handleInstall} />
 </div>

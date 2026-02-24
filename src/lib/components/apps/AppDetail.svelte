@@ -13,12 +13,14 @@
 		app,
 		logs = [],
 		onaction,
-		ondelete
+		ondelete,
+		isUpdating = false
 	}: {
 		app: SaltboxApp;
 		logs?: ContainerLog[];
 		onaction?: (action: 'start' | 'stop' | 'restart' | 'update') => void;
 		ondelete?: (deleteData: boolean) => void;
+		isUpdating?: boolean;
 	} = $props();
 
 	let activeTab = $state<'overview' | 'logs' | 'config' | 'network'>('overview');
@@ -52,20 +54,31 @@
 		</div>
 		<div class="flex items-center gap-2">
 			{#if app.subdomain}
-				<Button variant="ghost" onclick={() => window.open(`https://${app.subdomain}.domain.com`, '_blank')}>
+				<Button variant="ghost" disabled={isUpdating} onclick={() => window.open(`https://${app.subdomain}.domain.com`, '_blank')}>
 					<ExternalLink size={14} /> Open
 				</Button>
 			{/if}
-			<Button variant="default" onclick={() => onaction?.('update')}><RefreshCcw size={14} /> Update</Button>
+			<Button variant="default" disabled={isUpdating} onclick={() => onaction?.('update')}>
+				<RefreshCcw size={14} class={isUpdating ? 'animate-spin' : ''} />
+				{isUpdating ? 'Updating...' : 'Update'}
+			</Button>
 			{#if app.status === 'running'}
-				<Button variant="default" onclick={() => onaction?.('restart')}><RotateCw size={14} /> Restart</Button>
-				<Button variant="danger" onclick={() => onaction?.('stop')}><Square size={14} /> Stop</Button>
+				<Button variant="default" disabled={isUpdating} onclick={() => onaction?.('restart')}><RotateCw size={14} /> Restart</Button>
+				<Button variant="danger" disabled={isUpdating} onclick={() => onaction?.('stop')}><Square size={14} /> Stop</Button>
 			{:else if app.status === 'stopped'}
-				<Button variant="primary" onclick={() => onaction?.('start')}><Play size={14} /> Start</Button>
+				<Button variant="primary" disabled={isUpdating} onclick={() => onaction?.('start')}><Play size={14} /> Start</Button>
 			{/if}
-			<Button variant="danger" onclick={() => (showDeleteConfirm = true)}><Trash2 size={14} /> Delete</Button>
+			<Button variant="danger" disabled={isUpdating} onclick={() => (showDeleteConfirm = true)}><Trash2 size={14} /> Delete</Button>
 		</div>
 	</div>
+
+	<!-- Update in progress banner -->
+	{#if isUpdating}
+		<div class="flex items-center gap-3 px-4 py-3 rounded-lg bg-amber/10 border border-amber/30 text-sm text-amber">
+			<RefreshCcw size={15} class="animate-spin shrink-0" />
+			<span>Update in progress — please wait until it completes before taking further actions.</span>
+		</div>
+	{/if}
 
 	<!-- Delete confirmation -->
 	{#if showDeleteConfirm}
