@@ -82,6 +82,8 @@ The `docker-compose.yml` includes standard Saltbox Traefik labels. The UI will b
 | `HOST_PROC` | `/proc` | Host proc mount path |
 | `HOST_SYS` | `/sys` | Host sys mount path |
 | `HOST_FSTAB` | `/etc/fstab` | Host fstab mount path |
+| `SALTBOX_UI_DIR` | — | **Required for self-update.** Absolute path to the saltbox-ui project directory on the host (e.g. `/opt/saltbox-ui`). Used to run `git pull` and `docker compose up --build` on the host. |
+| `GITHUB_REPO` | `javi11/saltbox-ui` | GitHub repository (`owner/repo`) used to fetch the latest release tag in the Settings page. |
 
 ## Project Structure
 

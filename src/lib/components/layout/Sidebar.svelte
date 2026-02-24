@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { LayoutDashboard, Grid3x3, HardDrive, Container, Activity, PanelLeftClose, PanelLeft } from 'lucide-svelte';
+	import { LayoutDashboard, Grid3x3, HardDrive, Container, Activity, Settings, PanelLeftClose, PanelLeft } from 'lucide-svelte';
 	import { getUI } from '$lib/stores/ui.svelte';
 
 	const ui = getUI();
@@ -11,6 +11,7 @@
 		{ href: '/storage', label: 'Storage', icon: HardDrive },
 		{ href: '/docker', label: 'Docker', icon: Container },
 		{ href: '/system', label: 'System', icon: Activity },
+		{ href: '/settings', label: 'Settings', icon: Settings },
 	];
 
 	function isActive(href: string): boolean {
