@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { hostSpawn } from './host-exec';
 
+// eslint-disable-next-line no-control-regex
+const ANSI_RE = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
+
 export interface Job {
 	id: string;
 	command: string;
@@ -37,10 +40,19 @@ export function startJob(command: string, args: string[]): Job {
 
 	jobs.set(id, job);
 
-	const proc = hostSpawn(command, args);
+	const proc = hostSpawn(command, args, { tty: true });
+
+	// Auto-answer any interactive prompts (e.g. migration confirmations) then
+	// close stdin so Bubble Tea TUI viewers exit on EOF.
+	proc.stdin?.write('y\n');
+	proc.stdin?.end();
 
 	const appendOutput = (data: Buffer) => {
-		const lines = data.toString('utf-8').split('\n').filter(Boolean);
+		const lines = data
+			.toString('utf-8')
+			.replace(ANSI_RE, '')
+			.split('\n')
+			.filter(Boolean);
 		job.output.push(...lines);
 		// Keep max 5000 lines
 		if (job.output.length > 5000) {

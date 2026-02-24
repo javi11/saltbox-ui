@@ -33,11 +33,31 @@ export async function hostExec(
 	});
 }
 
+function shellEscape(s: string): string {
+	return "'" + s.replace(/'/g, "'\\''" ) + "'";
+}
+
 /**
  * Spawn a long-running command on the host via nsenter.
  * Returns a ChildProcess with stdout/stderr streams.
+ *
+ * When `tty` is true the command is wrapped with `script` so that the child
+ * sees an allocated pseudo-terminal — required by tools like `sb` that refuse
+ * to run without a TTY.
  */
-export function hostSpawn(command: string, args: string[]): ChildProcess {
+export function hostSpawn(
+	command: string,
+	args: string[],
+	options?: { tty?: boolean }
+): ChildProcess {
+	if (options?.tty) {
+		const shellCmd = [command, ...args].map(shellEscape).join(' ');
+		return spawn('nsenter', [...NSENTER_PREFIX, 'script', '-qefc', shellCmd, '/dev/null'], {
+			stdio: ['pipe', 'pipe', 'pipe'],
+			env: HOST_ENV
+		});
+	}
+
 	return spawn('nsenter', [...NSENTER_PREFIX, command, ...args], {
 		stdio: ['ignore', 'pipe', 'pipe'],
 		env: HOST_ENV

@@ -93,7 +93,10 @@ export const api = {
 		return withFallback<{ success: boolean; jobId?: string }>(
 			async () => {
 				const { startJob } = await import('./jobs');
-				const job = startJob('sb', ['update']);
+				const job = startJob('sh', [
+					'-c',
+					'sb self-update --yes && sb update --keep-branch --skip-self-update'
+				]);
 				return { success: true, jobId: job.id };
 			},
 			{ success: false }
@@ -119,7 +122,10 @@ export const api = {
 		return withFallback<{ success: boolean; jobId?: string }>(
 			async () => {
 				const { startJob } = await import('./jobs');
-				const job = startJob('sb', ['update']);
+				const job = startJob('sh', [
+					'-c',
+					'sb self-update --yes && sb update --keep-branch --skip-self-update'
+				]);
 				return { success: true, jobId: job.id };
 			},
 			{ success: false }
