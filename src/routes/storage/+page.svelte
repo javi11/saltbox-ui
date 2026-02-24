@@ -19,9 +19,23 @@
 		return undefined;
 	}
 
+	function findMountsByPrefix(node: MountPoint, prefix: string): MountPoint[] {
+		const results: MountPoint[] = [];
+		if (node.path.startsWith(prefix)) results.push(node);
+		for (const child of node.children ?? []) {
+			results.push(...findMountsByPrefix(child, prefix));
+		}
+		return results;
+	}
+
 	const local = $derived(findMount(data.mountTree, '/mnt/local'));
 	const remote = $derived(findMount(data.mountTree, '/mnt/remote'));
 	const union = $derived(findMount(data.mountTree, '/mnt/unionfs'));
+
+	const physicalDisks = $derived(findMountsByPrefix(data.mountTree, '/media/'));
+	const physicalUsed = $derived(physicalDisks.reduce((s, d) => s + d.used, 0));
+	const physicalTotal = $derived(physicalDisks.reduce((s, d) => s + d.size, 0));
+	const physicalFree = $derived(physicalDisks.reduce((s, d) => s + d.available, 0));
 </script>
 
 <svelte:head>
@@ -32,11 +46,14 @@
 	<h1 class="text-lg font-semibold text-text">Storage</h1>
 
 	<!-- Overview cards -->
-	<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+	<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
 		<MetricCard label="Local Storage" value={formatBytes(local?.used ?? 0)} unit="used" subtext="{formatBytes(local?.available ?? 0)} available" percent={local ? (local.used / local.size) * 100 : 0} icon={HardDrive} />
 		<MetricCard label="Cloud Storage" value={formatBytes(remote?.used ?? 0)} unit="used" subtext="{formatBytes(remote?.available ?? 0)} available" percent={remote ? (remote.used / remote.size) * 100 : 0} icon={Cloud} />
 		<MetricCard label="Union (MergeFS)" value={formatBytes(union?.used ?? 0)} unit="used" subtext="{formatBytes(union?.available ?? 0)} available" percent={union ? (union.used / union.size) * 100 : 0} icon={GitMerge} />
 		<MetricCard label="Total Capacity" value={formatBytes(union?.size ?? 0)} unit="" subtext="{formatBytes((union?.size ?? 0) - (union?.used ?? 0))} free" icon={Database} />
+		{#if physicalDisks.length > 0}
+			<MetricCard label="Physical Disks" value={formatBytes(physicalUsed)} unit="used" subtext="{formatBytes(physicalFree)} available" percent={physicalTotal > 0 ? (physicalUsed / physicalTotal) * 100 : 0} icon={HardDrive} />
+		{/if}
 	</div>
 
 	<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -65,6 +82,9 @@
 				{#if union}
 					<DiskUsageBar label="Union (/mnt/unionfs)" used={union.used} total={union.size} color="green" />
 				{/if}
+				{#each physicalDisks as disk}
+					<DiskUsageBar label={disk.path} used={disk.used} total={disk.size} color="amber" />
+				{/each}
 			</div>
 		</div>
 	</div>
