@@ -10,6 +10,7 @@
 	let updating = $state(false);
 	let updatingSaltbox = $state(false);
 	let showUpdateModal = $state(false);
+	let showUpdateAllModal = $state(false);
 
 	async function pollJob(jobId: string, label: string): Promise<boolean> {
 		const POLL_INTERVAL = 3000;
@@ -89,7 +90,7 @@
 		<h3 class="text-sm font-medium text-text">Quick Actions</h3>
 	</div>
 	<div class="p-4 grid grid-cols-2 gap-2">
-		<Button variant="default" disabled={updating} onclick={() => handleAction('Update All', 'updateAll')}>
+		<Button variant="default" disabled={updating} onclick={() => (showUpdateAllModal = true)}>
 			<Download size={14} />
 			{updating ? 'Updating...' : 'Update All'}
 		</Button>
@@ -118,6 +119,30 @@
 		</div>
 	</div>
 </div>
+
+<Modal bind:open={showUpdateAllModal} title="Update All Apps">
+	<div class="space-y-4">
+		<p class="text-sm text-text-secondary">
+			This will update all installed Saltbox apps to their latest versions. Some apps may have their <strong class="text-text">Docker containers restarted</strong>, which may cause temporary service interruptions.
+		</p>
+		<p class="text-sm text-text-secondary">
+			The process may take several minutes depending on the number of installed apps. Please wait for it to complete.
+		</p>
+		<div class="flex justify-end gap-2 pt-2">
+			<Button variant="default" onclick={() => (showUpdateAllModal = false)}>Cancel</Button>
+			<Button
+				variant="primary"
+				onclick={() => {
+					showUpdateAllModal = false;
+					handleAction('Update All', 'updateAll');
+				}}
+			>
+				<Download size={14} />
+				Update All
+			</Button>
+		</div>
+	</div>
+</Modal>
 
 <Modal bind:open={showUpdateModal} title="Update Saltbox">
 	<div class="space-y-4">

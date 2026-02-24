@@ -52,7 +52,7 @@ export const api = {
 		return withFallback<{ success: boolean; jobId?: string }>(
 			async () => {
 				const { startJob } = await import('./jobs');
-				const job = startJob('sb', ['install', slug]);
+				const job = startJob('sh', ['-c', `sb install ${slug}`]);
 				return { success: true, jobId: job.id };
 			},
 			{ success: false }
