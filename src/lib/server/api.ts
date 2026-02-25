@@ -10,6 +10,7 @@ import * as saltbox from './saltbox';
 import * as traefik from './traefik';
 import * as activity from './activity';
 import * as customApps from './custom-apps';
+import { cached } from './cache';
 
 // Import mock data as fallback (dev only)
 import { installedApps, appCatalog } from '$lib/data/mock/apps';
@@ -35,13 +36,13 @@ async function withFallback<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
 export const api = {
 	// Apps
 	async getApps(): Promise<SaltboxApp[]> {
-		return withFallback(() => saltbox.getApps(), installedApps);
+		return cached('apps', 30_000, () => withFallback(() => saltbox.getApps(), installedApps));
 	},
 	async getApp(slug: string): Promise<SaltboxApp | undefined> {
-		return withFallback(() => saltbox.getAppBySlug(slug), installedApps.find((a) => a.slug === slug));
+		return cached(`app:${slug}`, 30_000, () => withFallback(() => saltbox.getAppBySlug(slug), installedApps.find((a) => a.slug === slug)));
 	},
 	async getCatalog(): Promise<AppCatalogEntry[]> {
-		return withFallback(() => saltbox.getAppCatalog(), appCatalog);
+		return cached('catalog', 120_000, () => withFallback(() => saltbox.getAppCatalog(), appCatalog));
 	},
 	async installApp(slug: string): Promise<{ success: boolean; output?: string }> {
 		return withFallback(async () => {
@@ -81,7 +82,7 @@ export const api = {
 
 	// Containers
 	async getContainers(): Promise<Container[]> {
-		return withFallback(() => docker.listContainers(), mockContainers);
+		return cached('containers', 15_000, () => withFallback(() => docker.listContainers(), mockContainers));
 	},
 	async getContainerLogs(name: string, count?: number): Promise<ContainerLog[]> {
 		return withFallback(() => docker.getContainerLogs(name, count), generateMockLogs(name, count));
@@ -92,30 +93,30 @@ export const api = {
 
 	// Storage
 	async getMountTree(): Promise<MountPoint> {
-		return withFallback(() => storage.getMountTree(), mockMountTree);
+		return cached('mountTree', 30_000, () => withFallback(() => storage.getMountTree(), mockMountTree));
 	},
 	async getRcloneRemotes(): Promise<RcloneRemote[]> {
-		return withFallback(() => storage.getRcloneRemotes(), mockRemotes);
+		return cached('rcloneRemotes', 60_000, () => withFallback(() => storage.getRcloneRemotes(), mockRemotes));
 	},
 	async getMergeFSConfig(): Promise<MergeFSConfig> {
-		return withFallback(() => storage.getMergeFSConfig(), mockMergeFS);
+		return cached('mergeFSConfig', 60_000, () => withFallback(() => storage.getMergeFSConfig(), mockMergeFS));
 	},
 
 	// System
 	async getSystemHealth(): Promise<SystemHealth> {
-		return withFallback(() => system.getSystemHealth(), mockHealth);
+		return cached('systemHealth', 15_000, () => withFallback(() => system.getSystemHealth(), mockHealth));
 	},
 	async getTraefikRoutes(): Promise<TraefikRoute[]> {
-		return withFallback(() => traefik.getTraefikRoutes(), mockRoutes);
+		return cached('traefikRoutes', 30_000, () => withFallback(() => traefik.getTraefikRoutes(), mockRoutes));
 	},
 	async getBackups(): Promise<BackupEntry[]> {
-		return withFallback(() => activity.getBackups(), mockBackups);
+		return cached('backups', 60_000, () => withFallback(() => activity.getBackups(), mockBackups));
 	},
 	async getActivity(): Promise<ActivityEvent[]> {
-		return withFallback(() => activity.getActivity(), mockActivity);
+		return cached('activity', 15_000, () => withFallback(() => activity.getActivity(), mockActivity));
 	},
 	async getServiceStatuses(): Promise<ServiceStatus[]> {
-		return withFallback(() => system.getServiceStatuses(), mockServices);
+		return cached('serviceStatuses', 15_000, () => withFallback(() => system.getServiceStatuses(), mockServices));
 	},
 
 	// Actions

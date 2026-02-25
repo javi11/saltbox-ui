@@ -14,7 +14,11 @@
 <div class="space-y-6">
 	<h1 class="text-lg font-semibold text-text">System</h1>
 
-	<ServiceHealth services={data.services} />
+	{#await data.services}
+		<div class="bg-surface border border-border rounded-lg animate-pulse h-24"></div>
+	{:then services}
+		<ServiceHealth {services} />
+	{/await}
 	<MetricsPanel health={data.health} />
 	<BackupStatus backups={data.backups} />
 	<TraefikRoutes routes={data.routes} />

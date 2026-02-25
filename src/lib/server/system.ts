@@ -163,67 +163,50 @@ export async function getSystemHealth(): Promise<SystemHealth> {
 
 export async function getServiceStatuses(): Promise<ServiceStatus[]> {
 	const now = new Date().toISOString();
-	const services: ServiceStatus[] = [];
 
-	// Docker
-	try {
-		const start = Date.now();
-		await exec('docker', ['info', '--format', '{{.ServerVersion}}']);
-		services.push({
-			name: 'Docker',
-			status: 'healthy',
-			latency: Date.now() - start,
-			lastCheck: now
-		});
-	} catch {
-		services.push({ name: 'Docker', status: 'down', lastCheck: now });
-	}
+	const checkDocker = async (): Promise<ServiceStatus> => {
+		try {
+			const start = Date.now();
+			await exec('docker', ['info', '--format', '{{.ServerVersion}}']);
+			return { name: 'Docker', status: 'healthy', latency: Date.now() - start, lastCheck: now };
+		} catch {
+			return { name: 'Docker', status: 'down', lastCheck: now };
+		}
+	};
 
-	// Traefik
-	try {
-		const start = Date.now();
-		const controller = new AbortController();
-		const timeout = setTimeout(() => controller.abort(), 3000);
-		const traefikUrl = process.env.TRAEFIK_API_URL || 'http://localhost:8080';
-		const res = await fetch(`${traefikUrl}/api/overview`, { signal: controller.signal });
-		clearTimeout(timeout);
-		services.push({
-			name: 'Traefik',
-			status: res.ok ? 'healthy' : 'degraded',
-			latency: Date.now() - start,
-			lastCheck: now
-		});
-	} catch {
-		services.push({ name: 'Traefik', status: 'down', lastCheck: now });
-	}
+	const checkTraefik = async (): Promise<ServiceStatus> => {
+		try {
+			const start = Date.now();
+			const controller = new AbortController();
+			const timeout = setTimeout(() => controller.abort(), 3000);
+			const traefikUrl = process.env.TRAEFIK_API_URL || 'http://localhost:8080';
+			const res = await fetch(`${traefikUrl}/api/overview`, { signal: controller.signal });
+			clearTimeout(timeout);
+			return { name: 'Traefik', status: res.ok ? 'healthy' : 'degraded', latency: Date.now() - start, lastCheck: now };
+		} catch {
+			return { name: 'Traefik', status: 'down', lastCheck: now };
+		}
+	};
 
-	// Rclone
-	try {
-		const start = Date.now();
-		await exec('rclone', ['version'], { timeout: 3000 });
-		services.push({
-			name: 'Rclone',
-			status: 'healthy',
-			latency: Date.now() - start,
-			lastCheck: now
-		});
-	} catch {
-		services.push({ name: 'Rclone', status: 'down', lastCheck: now });
-	}
+	const checkRclone = async (): Promise<ServiceStatus> => {
+		try {
+			const start = Date.now();
+			await exec('rclone', ['version'], { timeout: 3000 });
+			return { name: 'Rclone', status: 'healthy', latency: Date.now() - start, lastCheck: now };
+		} catch {
+			return { name: 'Rclone', status: 'down', lastCheck: now };
+		}
+	};
 
-	// MergerFS
-	try {
-		const start = Date.now();
-		const { stdout } = await exec('findmnt', ['-t', 'fuse.mergerfs', '-n', '-o', 'TARGET'], { timeout: 3000 });
-		services.push({
-			name: 'MergerFS',
-			status: stdout.trim() ? 'healthy' : 'degraded',
-			latency: Date.now() - start,
-			lastCheck: now
-		});
-	} catch {
-		services.push({ name: 'MergerFS', status: 'down', lastCheck: now });
-	}
+	const checkMergerFS = async (): Promise<ServiceStatus> => {
+		try {
+			const start = Date.now();
+			const { stdout } = await exec('findmnt', ['-t', 'fuse.mergerfs', '-n', '-o', 'TARGET'], { timeout: 3000 });
+			return { name: 'MergerFS', status: stdout.trim() ? 'healthy' : 'degraded', latency: Date.now() - start, lastCheck: now };
+		} catch {
+			return { name: 'MergerFS', status: 'down', lastCheck: now };
+		}
+	};
 
-	return services;
+	return Promise.all([checkDocker(), checkTraefik(), checkRclone(), checkMergerFS()]);
 }
