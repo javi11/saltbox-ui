@@ -3,6 +3,12 @@ services:
     image: tecnativa/docker-socket-proxy:latest
     container_name: saltbox-ui-docker-proxy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:2375/_ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
@@ -33,7 +39,8 @@ services:
     privileged: true
     pid: host
     depends_on:
-      - docker-socket-proxy
+      docker-socket-proxy:
+        condition: service_healthy
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro

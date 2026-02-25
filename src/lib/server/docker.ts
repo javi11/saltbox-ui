@@ -8,6 +8,15 @@ const docker = dockerHost
 	? new Docker({ host: new URL(dockerHost).hostname, port: Number(new URL(dockerHost).port) || 2375 })
 	: new Docker({ socketPath: '/var/run/docker.sock' });
 
+function withTimeout<T>(ms: number, fn: () => Promise<T>): Promise<T> {
+	return Promise.race([
+		fn(),
+		new Promise<never>((_, reject) =>
+			setTimeout(() => reject(new Error(`Docker call timed out after ${ms}ms`)), ms)
+		)
+	]);
+}
+
 function mapState(state: string): Status {
 	switch (state.toLowerCase()) {
 		case 'running':
@@ -47,7 +56,7 @@ interface ContainerStats {
 async function getOneStats(containerId: string): Promise<ContainerStats> {
 	try {
 		const container = docker.getContainer(containerId);
-		const stats = await container.stats({ stream: false });
+		const stats = await withTimeout(5000, () => container.stats({ stream: false }));
 
 		const cpuDelta =
 			stats.cpu_stats.cpu_usage.total_usage - stats.precpu_stats.cpu_usage.total_usage;
@@ -100,7 +109,7 @@ async function withConcurrency<T>(limit: number, fns: (() => Promise<T>)[]): Pro
 }
 
 export async function listContainers(): Promise<Container[]> {
-	const raw = await docker.listContainers({ all: true });
+	const raw = await withTimeout(8000, () => docker.listContainers({ all: true }));
 
 	const results = await withConcurrency(
 		10,
@@ -128,7 +137,7 @@ export async function getContainerLogs(
 	nameOrId: string,
 	tail = 100
 ): Promise<ContainerLog[]> {
-	const containers = await docker.listContainers({ all: true });
+	const containers = await withTimeout(8000, () => docker.listContainers({ all: true }));
 	const match = containers.find(
 		(c) =>
 			c.Id.startsWith(nameOrId) ||
@@ -137,12 +146,12 @@ export async function getContainerLogs(
 	if (!match) return [];
 
 	const container = docker.getContainer(match.Id);
-	const logBuffer = await container.logs({
+	const logBuffer = await withTimeout(10000, () => container.logs({
 		stdout: true,
 		stderr: true,
 		tail,
 		timestamps: true
-	});
+	}));
 
 	const logString = typeof logBuffer === 'string' ? logBuffer : logBuffer.toString('utf-8');
 	const lines = logString.split('\n').filter(Boolean);
@@ -181,7 +190,7 @@ export async function containerAction(
 	nameOrId: string,
 	action: 'start' | 'stop' | 'restart'
 ): Promise<{ success: boolean }> {
-	const containers = await docker.listContainers({ all: true });
+	const containers = await withTimeout(8000, () => docker.listContainers({ all: true }));
 	const match = containers.find(
 		(c) =>
 			c.Id.startsWith(nameOrId) ||
@@ -190,6 +199,6 @@ export async function containerAction(
 	if (!match) return { success: false };
 
 	const container = docker.getContainer(match.Id);
-	await container[action]();
+	await withTimeout(10000, () => container[action]());
 	return { success: true };
 }
