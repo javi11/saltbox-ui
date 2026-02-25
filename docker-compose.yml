@@ -13,6 +13,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
       # Read-only access
+      PING: 1
       CONTAINERS: 1
       IMAGES: 0
       NETWORKS: 0
