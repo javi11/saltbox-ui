@@ -4,7 +4,7 @@ services:
     container_name: saltbox-ui-docker-proxy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:2375/_ping"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:2375/_ping || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3
