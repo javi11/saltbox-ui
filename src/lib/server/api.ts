@@ -24,7 +24,12 @@ const isProduction = process.env.NODE_ENV === 'production';
 
 async function withFallback<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
 	try {
-		return await fn();
+		return await Promise.race([
+			fn(),
+			new Promise<never>((_, reject) =>
+				setTimeout(() => reject(new Error('API call timed out')), 10_000)
+			)
+		]);
 	} catch (e) {
 		console.error(`[saltbox-api] Operation failed:`, e instanceof Error ? e.message : e);
 		if (isProduction) throw e;
@@ -82,7 +87,7 @@ export const api = {
 
 	// Containers
 	async getContainers(): Promise<Container[]> {
-		return cached('containers', 15_000, () => withFallback(() => docker.listContainers(), mockContainers));
+		return cached('containers', 20_000, () => withFallback(() => docker.listContainers(), mockContainers));
 	},
 	async getContainerLogs(name: string, count?: number): Promise<ContainerLog[]> {
 		return withFallback(() => docker.getContainerLogs(name, count), generateMockLogs(name, count));
@@ -104,7 +109,7 @@ export const api = {
 
 	// System
 	async getSystemHealth(): Promise<SystemHealth> {
-		return cached('systemHealth', 15_000, () => withFallback(() => system.getSystemHealth(), mockHealth));
+		return cached('systemHealth', 30_000, () => withFallback(() => system.getSystemHealth(), mockHealth));
 	},
 	async getTraefikRoutes(): Promise<TraefikRoute[]> {
 		return cached('traefikRoutes', 30_000, () => withFallback(() => traefik.getTraefikRoutes(), mockRoutes));
@@ -116,7 +121,7 @@ export const api = {
 		return cached('activity', 15_000, () => withFallback(() => activity.getActivity(), mockActivity));
 	},
 	async getServiceStatuses(): Promise<ServiceStatus[]> {
-		return cached('serviceStatuses', 15_000, () => withFallback(() => system.getServiceStatuses(), mockServices));
+		return cached('serviceStatuses', 30_000, () => withFallback(() => system.getServiceStatuses(), mockServices));
 	},
 
 	// Actions

@@ -2,9 +2,10 @@ import { api } from '$lib/server/api';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
-	const [health, containers] = await Promise.all([
+	const [health, containers, activity] = await Promise.all([
 		api.getSystemHealth(),
-		api.getContainers()
+		api.getContainers(),
+		api.getActivity()
 	]);
 
 	const runningContainers = containers.filter((c) => c.state === 'running');
@@ -12,5 +13,5 @@ export const load: PageServerLoad = async () => {
 		.sort((a, b) => b.cpu - a.cpu)
 		.slice(0, 5);
 
-	return { health, runningCount: runningContainers.length, totalCount: containers.length, topContainers, activity: api.getActivity() };
+	return { health, runningCount: runningContainers.length, totalCount: containers.length, topContainers, activity };
 };

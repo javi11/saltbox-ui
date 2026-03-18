@@ -56,7 +56,7 @@ interface ContainerStats {
 async function getOneStats(containerId: string): Promise<ContainerStats> {
 	try {
 		const container = docker.getContainer(containerId);
-		const stats = await withTimeout(5000, () => container.stats({ stream: false }));
+		const stats = await withTimeout(2000, () => container.stats({ stream: false }));
 
 		const cpuDelta =
 			stats.cpu_stats.cpu_usage.total_usage - stats.precpu_stats.cpu_usage.total_usage;
@@ -109,10 +109,10 @@ async function withConcurrency<T>(limit: number, fns: (() => Promise<T>)[]): Pro
 }
 
 export async function listContainers(): Promise<Container[]> {
-	const raw = await withTimeout(8000, () => docker.listContainers({ all: true }));
+	const raw = await withTimeout(5000, () => docker.listContainers({ all: true }));
 
 	const results = await withConcurrency(
-		10,
+		15,
 		raw.map((c) => async () => {
 			const stats =
 				c.State === 'running' ? await getOneStats(c.Id) : { cpu: 0, memory: 0, memoryRss: 0, memoryLimit: 0, networkRx: 0, networkTx: 0, pid: 0 };
