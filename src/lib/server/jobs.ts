@@ -17,6 +17,42 @@ export interface Job {
 
 const jobs = new Map<string, Job>();
 
+// Event listener system for SSE streaming
+type OutputCallback = (lines: string[]) => void;
+type DoneCallback = (job: Job) => void;
+
+const outputListeners = new Map<string, Set<OutputCallback>>();
+const doneListeners = new Map<string, Set<DoneCallback>>();
+
+export function onJobOutput(id: string, cb: OutputCallback): void {
+	if (!outputListeners.has(id)) outputListeners.set(id, new Set());
+	outputListeners.get(id)!.add(cb);
+}
+
+export function offJobOutput(id: string, cb: OutputCallback): void {
+	outputListeners.get(id)?.delete(cb);
+}
+
+export function onJobDone(id: string, cb: DoneCallback): void {
+	if (!doneListeners.has(id)) doneListeners.set(id, new Set());
+	doneListeners.get(id)!.add(cb);
+}
+
+export function offJobDone(id: string, cb: DoneCallback): void {
+	doneListeners.get(id)?.delete(cb);
+}
+
+function notifyOutput(id: string, lines: string[]): void {
+	outputListeners.get(id)?.forEach((cb) => cb(lines));
+}
+
+function notifyDone(job: Job): void {
+	doneListeners.get(job.id)?.forEach((cb) => cb(job));
+	// Cleanup listeners after job completes
+	outputListeners.delete(job.id);
+	doneListeners.delete(job.id);
+}
+
 export function getJobs(): Job[] {
 	return Array.from(jobs.values()).sort(
 		(a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
@@ -58,6 +94,7 @@ export function startJob(command: string, args: string[], options?: { tty?: bool
 		if (job.output.length > 5000) {
 			job.output = job.output.slice(-5000);
 		}
+		notifyOutput(id, lines);
 	};
 
 	proc.stdout?.on('data', appendOutput);
@@ -67,12 +104,14 @@ export function startJob(command: string, args: string[], options?: { tty?: bool
 		job.status = code === 0 ? 'completed' : 'failed';
 		job.exitCode = code ?? 1;
 		job.finishedAt = new Date().toISOString();
+		notifyDone(job);
 	});
 
 	proc.on('error', (err) => {
 		job.status = 'failed';
 		job.output.push(`Error: ${err.message}`);
 		job.finishedAt = new Date().toISOString();
+		notifyDone(job);
 	});
 
 	return job;

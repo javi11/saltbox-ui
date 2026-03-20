@@ -8,6 +8,7 @@
 	import { getUI } from '$lib/stores/ui.svelte';
 	import { Plus, LayoutGrid, List } from 'lucide-svelte';
 	import { invalidateAll } from '$app/navigation';
+	import { useJobStream } from '$lib/utils/use-job-stream.svelte';
 	import type { AppCategory, CustomAppDefinition } from '$lib/types/app';
 
 	let { data } = $props();
@@ -25,31 +26,6 @@
 		})
 	);
 
-	async function pollJob(jobId: string, label: string): Promise<boolean> {
-		for (let i = 0; i < 100; i++) {
-			await new Promise((r) => setTimeout(r, 3000));
-			try {
-				const res = await fetch(`/api/jobs/${jobId}`);
-				if (!res.ok) break;
-				const job = await res.json();
-				if (job.status === 'completed') {
-					ui.addToast(`${label} completed`, 'success');
-					await invalidateAll();
-					return true;
-				}
-				if (job.status === 'failed') {
-					const detail = job.output?.length ? job.output.slice(-3).join('\n') : `exit code ${job.exitCode ?? 'unknown'}`;
-					ui.addToast(`${label} failed: ${detail}`, 'error');
-					return false;
-				}
-			} catch {
-				break;
-			}
-		}
-		ui.addToast(`${label} timed out`, 'error');
-		return false;
-	}
-
 	async function handleAction(action: string, slug: string) {
 		if (action === 'update') {
 			ui.addToast(`Updating ${slug}...`, 'info');
@@ -58,13 +34,27 @@
 				const res = await fetch(`/api/apps/${slug}/update`, { method: 'POST' });
 				const result = await res.json();
 				if (result.success && result.jobId) {
-					await pollJob(result.jobId, `Update ${slug}`);
+					const stream = useJobStream(result.jobId);
+					$effect(() => {
+						if (stream.done) {
+							if (stream.status === 'completed') {
+								ui.addToast(`Update ${slug} completed`, 'success');
+								invalidateAll();
+							} else {
+								const detail = stream.output.length
+									? stream.output.slice(-3).join('\n')
+									: `exit code ${stream.exitCode ?? 'unknown'}`;
+								ui.addToast(`Update ${slug} failed: ${detail}`, 'error');
+							}
+							updatingSlug = null;
+						}
+					});
 				} else {
 					ui.addToast(`Failed to update ${slug}`, 'error');
+					updatingSlug = null;
 				}
 			} catch {
 				ui.addToast(`Failed to update ${slug}`, 'error');
-			} finally {
 				updatingSlug = null;
 			}
 		} else {

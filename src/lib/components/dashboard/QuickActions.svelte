@@ -4,6 +4,7 @@
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import { getUI } from '$lib/stores/ui.svelte';
 	import { invalidateAll } from '$app/navigation';
+	import { useJobStream } from '$lib/utils/use-job-stream.svelte';
 
 	const ui = getUI();
 
@@ -11,35 +12,27 @@
 	let updatingSaltbox = $state(false);
 	let showUpdateModal = $state(false);
 	let showUpdateAllModal = $state(false);
+	let activeStream = $state<ReturnType<typeof useJobStream> | null>(null);
 
-	async function pollJob(jobId: string, label: string): Promise<boolean> {
-		const POLL_INTERVAL = 3000;
-		const MAX_POLLS = 100;
+	function streamJob(jobId: string, label: string, onDone: () => void) {
+		const stream = useJobStream(jobId);
+		activeStream = stream;
 
-		for (let i = 0; i < MAX_POLLS; i++) {
-			await new Promise((r) => setTimeout(r, POLL_INTERVAL));
-			try {
-				const res = await fetch(`/api/jobs/${jobId}`);
-				if (!res.ok) break;
-				const job = await res.json();
-				if (job.status === 'completed') {
+		$effect(() => {
+			if (stream.done) {
+				if (stream.status === 'completed') {
 					ui.addToast(`${label} completed`, 'success');
-					await invalidateAll();
-					return true;
-				}
-				if (job.status === 'failed') {
-					const detail = job.output?.length
-						? job.output.slice(-3).join('\n')
-						: `exit code ${job.exitCode ?? 'unknown'}`;
+					invalidateAll();
+				} else {
+					const detail = stream.output.length
+						? stream.output.slice(-3).join('\n')
+						: `exit code ${stream.exitCode ?? 'unknown'}`;
 					ui.addToast(`${label} failed: ${detail}`, 'error');
-					return false;
 				}
-			} catch {
-				break;
+				activeStream = null;
+				onDone();
 			}
-		}
-		ui.addToast(`${label} timed out`, 'error');
-		return false;
+		});
 	}
 
 	async function handleAction(name: string, action: string) {
@@ -62,15 +55,13 @@
 
 			if (action === 'updateAll' && result.success && result.jobId) {
 				updating = true;
-				await pollJob(result.jobId, 'Update All');
-				updating = false;
+				streamJob(result.jobId, 'Update All', () => { updating = false; });
 				return;
 			}
 
 			if (action === 'updateSaltbox' && result.success && result.jobId) {
 				updatingSaltbox = true;
-				await pollJob(result.jobId, 'Update Saltbox');
-				updatingSaltbox = false;
+				streamJob(result.jobId, 'Update Saltbox', () => { updatingSaltbox = false; });
 				return;
 			}
 
@@ -173,5 +164,12 @@
 		<GitBranch size={40} class="text-primary animate-pulse" />
 		<p class="text-text text-lg font-medium">Updating Saltbox...</p>
 		<p class="text-text-secondary text-sm">All Docker containers are being restarted. Please wait.</p>
+		{#if activeStream && activeStream.output.length > 0}
+			<div class="w-full max-w-2xl mt-4 bg-surface border border-border rounded-lg p-3 max-h-48 overflow-y-auto font-mono text-xs text-text-secondary">
+				{#each activeStream.output.slice(-20) as line}
+					<div>{line}</div>
+				{/each}
+			</div>
+		{/if}
 	</div>
 {/if}

@@ -3,8 +3,17 @@
 	import BackupStatus from '$lib/components/system/BackupStatus.svelte';
 	import TraefikRoutes from '$lib/components/system/TraefikRoutes.svelte';
 	import ServiceHealth from '$lib/components/system/ServiceHealth.svelte';
+	import { createSSE } from '$lib/utils/sse.svelte';
+	import type { SystemHealth } from '$lib/types/system';
 
 	let { data } = $props();
+
+	// Live health updates via SSE
+	let liveHealth = $state<SystemHealth | null>(null);
+	const healthSSE = createSSE('/api/sse/system');
+	healthSSE.on('health', (d: unknown) => { liveHealth = d as SystemHealth; });
+
+	const health = $derived(liveHealth ?? data.health);
 </script>
 
 <svelte:head>
@@ -19,7 +28,7 @@
 	{:then services}
 		<ServiceHealth {services} />
 	{/await}
-	<MetricsPanel health={data.health} />
+	<MetricsPanel {health} />
 	<BackupStatus backups={data.backups} />
 	<TraefikRoutes routes={data.routes} />
 </div>
