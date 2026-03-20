@@ -87,7 +87,7 @@ export const api = {
 
 	// Containers
 	async getContainers(): Promise<Container[]> {
-		return cached('containers', 20_000, () => withFallback(() => docker.listContainers(), mockContainers));
+		return cached('containers', 10_000, () => withFallback(() => docker.listContainers(), mockContainers));
 	},
 	async getContainerLogs(name: string, count?: number): Promise<ContainerLog[]> {
 		return withFallback(() => docker.getContainerLogs(name, count), generateMockLogs(name, count));
@@ -109,7 +109,7 @@ export const api = {
 
 	// System
 	async getSystemHealth(): Promise<SystemHealth> {
-		return cached('systemHealth', 30_000, () => withFallback(() => system.getSystemHealth(), mockHealth));
+		return cached('systemHealth', 5_000, () => withFallback(() => system.getSystemHealth(), mockHealth));
 	},
 	async getTraefikRoutes(): Promise<TraefikRoute[]> {
 		return cached('traefikRoutes', 30_000, () => withFallback(() => traefik.getTraefikRoutes(), mockRoutes));
@@ -118,7 +118,7 @@ export const api = {
 		return cached('backups', 60_000, () => withFallback(() => activity.getBackups(), mockBackups));
 	},
 	async getActivity(): Promise<ActivityEvent[]> {
-		return cached('activity', 15_000, () => withFallback(() => activity.getActivity(), mockActivity));
+		return cached('activity', 30_000, () => withFallback(() => activity.getActivity(), mockActivity));
 	},
 	async getServiceStatuses(): Promise<ServiceStatus[]> {
 		return cached('serviceStatuses', 30_000, () => withFallback(() => system.getServiceStatuses(), mockServices));

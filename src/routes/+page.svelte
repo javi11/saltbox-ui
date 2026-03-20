@@ -3,7 +3,8 @@
 	import ActivityFeed from '$lib/components/dashboard/ActivityFeed.svelte';
 	import StorageOverview from '$lib/components/dashboard/StorageOverview.svelte';
 	import QuickActions from '$lib/components/dashboard/QuickActions.svelte';
-	import { formatBytes, formatPercent } from '$lib/utils/format';
+	import Skeleton from '$lib/components/ui/Skeleton.svelte';
+	import { formatBytes } from '$lib/utils/format';
 	import { createSSE } from '$lib/utils/sse.svelte';
 	import type { SystemHealth } from '$lib/types/system';
 	import type { Container } from '$lib/types/container';
@@ -15,30 +16,21 @@
 	const healthSSE = createSSE('/api/sse/system');
 	healthSSE.on('health', (d: unknown) => { liveHealth = d as SystemHealth; });
 
-	const health = $derived(liveHealth ?? data.health);
-
 	// Live container updates via SSE
 	let liveContainers = $state<Container[] | null>(null);
 	const containerSSE = createSSE('/api/sse/containers');
 	containerSSE.on('containers', (d: unknown) => { liveContainers = d as Container[]; });
 
-	const containers = $derived(liveContainers ?? data.topContainers);
 	const runningContainers = $derived(
-		liveContainers
-			? liveContainers.filter((c) => c.state === 'running')
-			: null
+		liveContainers ? liveContainers.filter((c) => c.state === 'running') : null
 	);
 	const topContainers = $derived(
-		liveContainers
-			? [...runningContainers!].sort((a, b) => b.cpu - a.cpu).slice(0, 5)
-			: data.topContainers
+		runningContainers
+			? [...runningContainers].sort((a, b) => b.cpu - a.cpu).slice(0, 5)
+			: null
 	);
-	const runningCount = $derived(
-		liveContainers ? runningContainers!.length : data.runningCount
-	);
-	const totalCount = $derived(
-		liveContainers ? liveContainers.length : data.totalCount
-	);
+	const runningCount = $derived(runningContainers?.length ?? 0);
+	const totalCount = $derived(liveContainers?.length ?? 0);
 </script>
 
 <svelte:head>
@@ -49,13 +41,29 @@
 	<div class="flex items-center justify-between">
 		<h1 class="text-lg font-semibold text-text">Dashboard</h1>
 		<div class="flex items-center gap-2 text-xs font-mono text-text-tertiary">
-			<span class="w-2 h-2 rounded-full bg-green"></span>
-			{runningCount} / {totalCount} containers
+			{#if liveContainers}
+				<span class="w-2 h-2 rounded-full bg-green"></span>
+				{runningCount} / {totalCount} containers
+			{:else}
+				<Skeleton width="w-32" height="h-3" />
+			{/if}
 		</div>
 	</div>
 
 	<!-- Health metrics -->
-	<HealthCards {health} />
+	{#if liveHealth}
+		<HealthCards health={liveHealth} />
+	{:else}
+		<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+			{#each Array(4) as _}
+				<div class="bg-surface border border-border rounded-lg p-4 space-y-3">
+					<Skeleton width="w-16" height="h-3" />
+					<Skeleton width="w-24" height="h-6" />
+					<Skeleton height="h-2" />
+				</div>
+			{/each}
+		</div>
+	{/if}
 
 	<!-- Top containers -->
 	<div class="bg-surface border border-border rounded-lg">
@@ -63,15 +71,24 @@
 			<h3 class="text-sm font-medium text-text">Top Containers by CPU</h3>
 		</div>
 		<div class="divide-y divide-border">
-			{#each topContainers as container}
-				<div class="px-4 py-2.5 flex items-center justify-between">
-					<span class="text-sm font-mono text-text">{container.name}</span>
-					<div class="flex items-center gap-4 text-xs font-mono text-text-secondary">
-						<span>CPU {container.cpu.toFixed(1)}%</span>
-						<span>MEM {formatBytes(container.memory)}</span>
+			{#if topContainers}
+				{#each topContainers as container}
+					<div class="px-4 py-2.5 flex items-center justify-between">
+						<span class="text-sm font-mono text-text">{container.name}</span>
+						<div class="flex items-center gap-4 text-xs font-mono text-text-secondary">
+							<span>CPU {container.cpu.toFixed(1)}%</span>
+							<span>MEM {formatBytes(container.memory)}</span>
+						</div>
 					</div>
-				</div>
-			{/each}
+				{/each}
+			{:else}
+				{#each Array(5) as _}
+					<div class="px-4 py-2.5 flex items-center justify-between">
+						<Skeleton width="w-32" height="h-4" />
+						<Skeleton width="w-40" height="h-3" />
+					</div>
+				{/each}
+			{/if}
 		</div>
 	</div>
 
