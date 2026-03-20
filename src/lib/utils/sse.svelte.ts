@@ -93,11 +93,10 @@ export function createSSE(url: string): SSEConnection {
 		}
 	}
 
-	if (typeof document !== 'undefined') {
+	if (typeof window !== 'undefined') {
 		document.addEventListener('visibilitychange', onVisibilityChange);
+		connect();
 	}
-
-	connect();
 
 	onDestroy(() => {
 		close();
