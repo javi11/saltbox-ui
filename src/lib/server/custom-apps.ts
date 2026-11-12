@@ -1,7 +1,6 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import type { CustomAppDefinition } from '$lib/types/app';
-import { hostExec } from './host-exec';
 
 const CUSTOM_APPS_PATH = process.env.CUSTOM_APPS_PATH ?? '/opt/saltbox-ui/custom-apps.json';
 
@@ -58,9 +57,7 @@ export async function deleteCustomApp(
 	return { success: true };
 }
 
-export async function installCustomApp(
-	def: CustomAppDefinition
-): Promise<{ success: boolean; output?: string }> {
+export function customAppRunArgs(def: CustomAppDefinition, volumesFrom?: string): string[] {
 	const args = [
 		'run',
 		'-d',
@@ -69,6 +66,7 @@ export async function installCustomApp(
 		'--restart',
 		def.restart ?? 'unless-stopped'
 	];
+	if (volumesFrom) args.push('--volumes-from', volumesFrom);
 
 	if (def.port) {
 		args.push('-p', `${def.port}:${def.port}`);
@@ -82,17 +80,13 @@ export async function installCustomApp(
 
 	if (def.volumes) {
 		for (const vol of def.volumes) {
+			// Anonymous volumes already come from the previous container on updates.
+			if (volumesFrom && !vol.includes(':')) continue;
 			args.push('-v', vol);
 		}
 	}
 
 	args.push(def.image);
 
-	try {
-		const { stdout, stderr } = await hostExec('docker', args, { timeout: 120000 });
-		return { success: true, output: stdout || stderr };
-	} catch (e) {
-		console.error('[custom-apps] installCustomApp failed:', e);
-		return { success: false, output: 'Failed to deploy container' };
-	}
+	return args;
 }

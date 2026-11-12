@@ -1,4 +1,5 @@
 import Docker from 'dockerode';
+import { cached } from './cache';
 import type { Container, ContainerLog, PortMapping } from '$lib/types/container';
 import type { Status } from '$lib/types/common';
 
@@ -9,12 +10,13 @@ const docker = dockerHost
 	: new Docker({ socketPath: '/var/run/docker.sock' });
 
 function withTimeout<T>(ms: number, fn: () => Promise<T>): Promise<T> {
+	let timer: ReturnType<typeof setTimeout>;
 	return Promise.race([
 		fn(),
-		new Promise<never>((_, reject) =>
-			setTimeout(() => reject(new Error(`Docker call timed out after ${ms}ms`)), ms)
-		)
-	]);
+		new Promise<never>((_, reject) => {
+			timer = setTimeout(() => reject(new Error(`Docker call timed out after ${ms}ms`)), ms);
+		})
+	]).finally(() => clearTimeout(timer));
 }
 
 function mapState(state: string): Status {
@@ -66,7 +68,8 @@ async function getOneStats(containerId: string): Promise<ContainerStats> {
 		const cpuPercent = systemDelta > 0 ? (cpuDelta / systemDelta) * cpuCount * 100 : 0;
 
 		const memUsage = stats.memory_stats.usage - (stats.memory_stats.stats?.cache || 0);
-		const memoryRss = stats.memory_stats.stats?.rss ?? stats.memory_stats.stats?.anon ?? 0;
+		const memoryStats = stats.memory_stats.stats as (typeof stats.memory_stats.stats & { anon?: number }) | undefined;
+		const memoryRss = memoryStats?.rss ?? memoryStats?.anon ?? 0;
 		const memLimit = stats.memory_stats.limit;
 
 		let networkRx = 0;
@@ -108,14 +111,14 @@ async function withConcurrency<T>(limit: number, fns: (() => Promise<T>)[]): Pro
 	return results;
 }
 
-export async function listContainers(): Promise<Container[]> {
-	const raw = await withTimeout(5000, () => docker.listContainers({ all: true }));
+export async function listContainers(options: { includeStats?: boolean } = {}): Promise<Container[]> {
+	const raw = await cached('docker:list', 5000, () => withTimeout(5000, () => docker.listContainers({ all: true })));
 
 	const results = await withConcurrency(
 		15,
 		raw.map((c) => async () => {
 			const stats =
-				c.State === 'running' ? await getOneStats(c.Id) : { cpu: 0, memory: 0, memoryRss: 0, memoryLimit: 0, networkRx: 0, networkTx: 0, pid: 0 };
+				options.includeStats !== false && c.State === 'running' ? await cached(`docker:stats:${c.Id}`, 10_000, () => getOneStats(c.Id)) : { cpu: 0, memory: 0, memoryRss: 0, memoryLimit: 0, networkRx: 0, networkTx: 0, pid: 0 };
 
 			const container: Container = {
 				id: c.Id.slice(0, 12),
@@ -199,6 +202,10 @@ export async function containerAction(
 	if (!match) return { success: false };
 
 	const container = docker.getContainer(match.Id);
-	await withTimeout(10000, () => container[action]());
+	await withTimeout(10000, () => {
+		if (action === 'start') return container.start();
+		if (action === 'stop') return container.stop();
+		return container.restart();
+	});
 	return { success: true };
 }

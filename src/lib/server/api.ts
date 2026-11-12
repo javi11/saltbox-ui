@@ -10,7 +10,8 @@ import * as saltbox from './saltbox';
 import * as traefik from './traefik';
 import * as activity from './activity';
 import * as customApps from './custom-apps';
-import { cached } from './cache';
+import { cached, invalidate } from './cache';
+import { startAppJob, startUpdateAll, type AppJobResult } from './app-jobs';
 
 // Import mock data as fallback (dev only)
 import { installedApps, appCatalog } from '$lib/data/mock/apps';
@@ -23,19 +24,26 @@ import { traefikRoutes as mockRoutes, backupHistory as mockBackups } from '$lib/
 const isProduction = process.env.NODE_ENV === 'production';
 
 async function withFallback<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
+	let timer: ReturnType<typeof setTimeout> | undefined;
 	try {
 		return await Promise.race([
 			fn(),
-			new Promise<never>((_, reject) =>
-				setTimeout(() => reject(new Error('API call timed out')), 10_000)
-			)
+			new Promise<never>((_, reject) => {
+				timer = setTimeout(() => reject(new Error('API call timed out')), 10_000);
+			})
 		]);
 	} catch (e) {
 		console.error(`[saltbox-api] Operation failed:`, e instanceof Error ? e.message : e);
 		if (isProduction) throw e;
 		console.warn(`[saltbox-api] Using mock data (dev mode)`);
 		return fallback;
+	} finally {
+		clearTimeout(timer);
 	}
+}
+
+function invalidateAppData(): void {
+	for (const key of ['apps', 'containers', 'catalog', 'docker:list']) invalidate(key);
 }
 
 export const api = {
@@ -44,31 +52,21 @@ export const api = {
 		return cached('apps', 30_000, () => withFallback(() => saltbox.getApps(), installedApps));
 	},
 	async getApp(slug: string): Promise<SaltboxApp | undefined> {
-		return cached(`app:${slug}`, 30_000, () => withFallback(() => saltbox.getAppBySlug(slug), installedApps.find((a) => a.slug === slug)));
+		return (await this.getApps()).find((app) => app.slug === slug);
 	},
 	async getCatalog(): Promise<AppCatalogEntry[]> {
 		return cached('catalog', 120_000, () => withFallback(() => saltbox.getAppCatalog(), appCatalog));
 	},
-	async installApp(slug: string): Promise<{ success: boolean; output?: string }> {
-		return withFallback(async () => {
-			const custom = await customApps.getCustomApps();
-			const def = custom.find((a) => a.slug === slug);
-			if (def) return customApps.installCustomApp(def);
-			return saltbox.installApp(slug);
-		}, { success: false });
+	async installApp(slug: string): Promise<AppJobResult> {
+		return startAppJob(slug);
 	},
 	async uninstallApp(slug: string, deleteData = false): Promise<{ success: boolean }> {
-		return withFallback(() => saltbox.uninstallApp(slug, deleteData), { success: false });
+		const result = await saltbox.uninstallApp(slug, deleteData);
+		if (result.success) invalidateAppData();
+		return result;
 	},
-	async updateApp(slug: string): Promise<{ success: boolean; jobId?: string }> {
-		return withFallback<{ success: boolean; jobId?: string }>(
-			async () => {
-				const { startJob } = await import('./jobs');
-				const job = startJob('sh', ['-c', `sb install ${slug}`], { tty: false });
-				return { success: true, jobId: job.id };
-			},
-			{ success: false }
-		);
+	async updateApp(slug: string): Promise<AppJobResult> {
+		return startAppJob(slug, true);
 	},
 
 	// Custom apps
@@ -76,13 +74,19 @@ export const api = {
 		return withFallback(() => customApps.getCustomApps(), []);
 	},
 	async createCustomApp(def: CustomAppDefinition): Promise<{ success: boolean; error?: string }> {
-		return withFallback(() => customApps.createCustomApp(def), { success: false });
+		const result = await customApps.createCustomApp(def);
+		if (result.success) invalidate('catalog');
+		return result;
 	},
 	async updateCustomApp(slug: string, def: CustomAppDefinition): Promise<{ success: boolean; error?: string }> {
-		return withFallback(() => customApps.updateCustomApp(slug, def), { success: false });
+		const result = await customApps.updateCustomApp(slug, def);
+		if (result.success) invalidate('catalog');
+		return result;
 	},
 	async deleteCustomApp(slug: string): Promise<{ success: boolean; error?: string }> {
-		return withFallback(() => customApps.deleteCustomApp(slug), { success: false });
+		const result = await customApps.deleteCustomApp(slug);
+		if (result.success) invalidate('catalog');
+		return result;
 	},
 
 	// Containers
@@ -93,7 +97,9 @@ export const api = {
 		return withFallback(() => docker.getContainerLogs(name, count), generateMockLogs(name, count));
 	},
 	async containerAction(id: string, action: 'start' | 'stop' | 'restart'): Promise<{ success: boolean }> {
-		return withFallback(() => docker.containerAction(id, action), { success: true });
+		const result = await docker.containerAction(id, action);
+		if (result.success) invalidateAppData();
+		return result;
 	},
 
 	// Storage
@@ -125,24 +131,14 @@ export const api = {
 	},
 
 	// Actions
-	async updateAll(): Promise<{ success: boolean; jobId?: string }> {
-		return withFallback<{ success: boolean; jobId?: string }>(
-			async () => {
-				const { startJob } = await import('./jobs');
-				const job = startJob('sh', [
-					'-c',
-					'sb self-update --yes && sb update --keep-branch --skip-self-update'
-				]);
-				return { success: true, jobId: job.id };
-			},
-			{ success: false }
-		);
+	async updateAll(): Promise<AppJobResult> {
+		return startUpdateAll();
 	},
 	async backupNow(): Promise<{ success: boolean }> {
 		return withFallback<{ success: boolean }>(
 			async () => {
 				const { startJob } = await import('./jobs');
-				startJob('sb', ['install', 'backup']);
+				startJob('sb', ['install', 'backup'], { resource: 'apps' });
 				return { success: true };
 			},
 			{ success: false }
@@ -161,7 +157,7 @@ export const api = {
 				const job = startJob('sh', [
 					'-c',
 					'sb self-update --yes && sb update --keep-branch --skip-self-update'
-				]);
+				], { resource: 'apps' });
 				return { success: true, jobId: job.id };
 			},
 			{ success: false }

@@ -42,6 +42,7 @@ services:
       - /opt/saltbox_backup:/opt/saltbox_backup:ro
       - /opt/sandbox:/opt/sandbox:ro
       - saltbox-ui-audit:/var/log/saltbox-ui
+      - saltbox-ui-data:/opt/saltbox-ui
     environment:
       - PORT=3000
       - HOST=0.0.0.0
@@ -79,6 +80,7 @@ services:
 
 volumes:
   saltbox-ui-audit:
+  saltbox-ui-data:
 
 networks:
   saltbox:

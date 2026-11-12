@@ -205,7 +205,7 @@
 								<Button
 									size="sm"
 									variant="primary"
-									disabled={installingSlug === entry.slug}
+									disabled={installingSlug !== null}
 									onclick={() => handleInstall(entry.slug)}
 								>
 									{#if installingSlug === entry.slug}

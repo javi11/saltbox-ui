@@ -1,3 +1,5 @@
+import { StringDecoder } from 'node:string_decoder';
+import { invalidate } from './cache';
 import { randomUUID } from 'node:crypto';
 import { hostSpawn } from './host-exec';
 
@@ -13,6 +15,7 @@ export interface Job {
 	startedAt: string;
 	finishedAt?: string;
 	exitCode?: number;
+	resource?: string;
 }
 
 const jobs = new Map<string, Job>();
@@ -63,7 +66,14 @@ export function getJob(id: string): Job | undefined {
 	return jobs.get(id);
 }
 
-export function startJob(command: string, args: string[], options?: { tty?: boolean }): Job {
+export function startJob(command: string, args: string[], options?: { tty?: boolean; resource?: string }): Job {
+	const existing = getJobs().find((job) => job.status === 'running' &&
+		job.command === command && JSON.stringify(job.args) === JSON.stringify(args));
+	if (existing) return existing;
+	if (options?.resource && getJobs().some((job) => job.status === 'running' && job.resource === options.resource)) {
+		throw new Error('Another app installation or update is running. Wait for it to finish before starting another.');
+	}
+	cleanupJobs();
 	const id = randomUUID();
 	const job: Job = {
 		id,
@@ -73,46 +83,54 @@ export function startJob(command: string, args: string[], options?: { tty?: bool
 		output: [],
 		startedAt: new Date().toISOString()
 	};
+	job.resource = options?.resource;
 
 	jobs.set(id, job);
 
 	const proc = hostSpawn(command, args, { tty: options?.tty ?? true });
 
-	// Auto-answer any interactive prompts (e.g. migration confirmations) then
-	// close stdin so Bubble Tea TUI viewers exit on EOF.
-	proc.stdin?.write('y\n');
-	proc.stdin?.end();
-
-	const appendOutput = (data: Buffer) => {
-		const lines = data
-			.toString('utf-8')
-			.replace(ANSI_RE, '')
-			.split('\n')
-			.filter(Boolean);
+	const appendLines = (lines: string[]) => {
+		if (!lines.length) return;
 		job.output.push(...lines);
-		// Keep max 5000 lines
-		if (job.output.length > 5000) {
-			job.output = job.output.slice(-5000);
-		}
+		if (job.output.length > 5000) job.output = job.output.slice(-5000);
 		notifyOutput(id, lines);
 	};
 
-	proc.stdout?.on('data', appendOutput);
-	proc.stderr?.on('data', appendOutput);
+	// stdout and stderr can split both lines and multi-byte characters.
+	const readers = [proc.stdout, proc.stderr].map((stream) => {
+		const decoder = new StringDecoder('utf8');
+		let partial = '';
+		stream?.on('data', (data: Buffer) => {
+			partial += decoder.write(data);
+			const lines = partial.split(/\r?\n|\r/);
+			partial = lines.pop() ?? '';
+			appendLines(lines.map((line) => line.replace(ANSI_RE, '')).filter(Boolean));
+		});
+		return () => {
+			partial += decoder.end();
+			if (partial) appendLines([partial.replace(ANSI_RE, '')]);
+		};
+	});
 
-	proc.on('close', (code) => {
+	const finish = (code: number, error?: Error) => {
+		if (job.status !== 'running') return;
+		readers.forEach((flush) => flush());
+		if (error) appendLines([`Error: ${error.message}`]);
 		job.status = code === 0 ? 'completed' : 'failed';
-		job.exitCode = code ?? 1;
+		job.exitCode = code;
 		job.finishedAt = new Date().toISOString();
+		// Even a failed playbook can have changed some containers.
+		for (const key of ['apps', 'containers', 'catalog', 'docker:list']) invalidate(key);
 		notifyDone(job);
-	});
+	};
 
-	proc.on('error', (err) => {
-		job.status = 'failed';
-		job.output.push(`Error: ${err.message}`);
-		job.finishedAt = new Date().toISOString();
-		notifyDone(job);
+	proc.on('close', (code) => finish(code ?? 1));
+	proc.on('error', (error) => finish(1, error));
+	// A child can exit before consuming stdin. EPIPE must not crash the server.
+	proc.stdin?.on('error', (error: NodeJS.ErrnoException) => {
+		if (error.code !== 'EPIPE') finish(1, error);
 	});
+	proc.stdin?.end('y\n');
 
 	return job;
 }
