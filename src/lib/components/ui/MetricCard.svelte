@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Component } from 'svelte';
+	import type { Cpu as LucideIcon } from 'lucide-svelte';
 
 	let {
 		label,
@@ -14,7 +14,7 @@
 		unit?: string;
 		subtext?: string;
 		percent?: number;
-		icon?: Component<{ size?: number; class?: string }>;
+		icon?: typeof LucideIcon;
 	} = $props();
 </script>
 

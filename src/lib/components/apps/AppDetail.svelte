@@ -17,7 +17,7 @@
 		isUpdating = false
 	}: {
 		app: SaltboxApp;
-		logs?: ContainerLog[];
+		logs?: ContainerLog[] | Promise<ContainerLog[]>;
 		onaction?: (action: 'start' | 'stop' | 'restart' | 'update') => void;
 		ondelete?: (deleteData: boolean) => void;
 		isUpdating?: boolean;
@@ -159,21 +159,27 @@
 
 	{:else if activeTab === 'logs'}
 		<div class="bg-bg border border-border rounded-lg p-4 font-mono text-xs max-h-[500px] overflow-y-auto">
-			{#each logs as log}
-				<div class="py-0.5 flex gap-3">
-					<span class="text-text-tertiary whitespace-nowrap">{new Date(log.timestamp).toLocaleTimeString()}</span>
-					<span class="uppercase w-12"
-						class:text-green={log.level === 'info'}
-						class:text-yellow={log.level === 'warn'}
-						class:text-red={log.level === 'error'}
-						class:text-text-tertiary={log.level === 'debug'}
-					>{log.level}</span>
-					<span class="text-text-secondary">{log.message}</span>
-				</div>
-			{/each}
-			{#if logs.length === 0}
-				<p class="text-text-tertiary text-center py-8">No logs available</p>
-			{/if}
+			{#await logs}
+				<p class="text-text-tertiary text-center py-8">Loading logs...</p>
+			{:then entries}
+				{#each entries as log}
+					<div class="py-0.5 flex gap-3">
+						<span class="text-text-tertiary whitespace-nowrap">{new Date(log.timestamp).toLocaleTimeString()}</span>
+						<span class="uppercase w-12"
+							class:text-green={log.level === 'info'}
+							class:text-yellow={log.level === 'warn'}
+							class:text-red={log.level === 'error'}
+							class:text-text-tertiary={log.level === 'debug'}
+						>{log.level}</span>
+						<span class="text-text-secondary">{log.message}</span>
+					</div>
+				{/each}
+				{#if entries.length === 0}
+					<p class="text-text-tertiary text-center py-8">No logs available</p>
+				{/if}
+			{:catch}
+				<p class="text-red text-center py-8">Unable to load logs. Try refreshing the page.</p>
+			{/await}
 		</div>
 
 	{:else if activeTab === 'config'}

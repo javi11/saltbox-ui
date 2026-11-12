@@ -8,7 +8,10 @@
 	import { getUI } from '$lib/stores/ui.svelte';
 	import { Plus, LayoutGrid, List } from 'lucide-svelte';
 	import { invalidateAll } from '$app/navigation';
-	import { useJobStream } from '$lib/utils/use-job-stream.svelte';
+	import { requestJob, jobFailure } from '$lib/utils/wait-for-job';
+	import { onDestroy } from 'svelte';
+	import { createSSE } from '$lib/utils/sse.svelte';
+	import type { Container } from '$lib/types/container';
 	import type { AppCategory, CustomAppDefinition } from '$lib/types/app';
 
 	let { data } = $props();
@@ -16,10 +19,19 @@
 	const ui = getUI();
 
 	let catalogOpen = $state(false);
-	let updatingSlug = $state<string | null>(null);
+	let updatingSlugs = $state<string[]>([]);
+	const operations = new AbortController();
+	onDestroy(() => operations.abort());
+	let liveContainers = $state<Container[]>([]);
+	const containerSSE = createSSE('/api/sse/containers');
+	containerSSE.on('containers', (value) => { liveContainers = value as Container[]; });
+	const appsWithMetrics = $derived(data.apps.map((app) => {
+		const container = liveContainers.find((c) => c.name.toLowerCase().replace(/[^a-z0-9-]/g, '-') === app.slug);
+		return container ? { ...app, cpu: container.cpu, memory: container.memory, memoryLimit: container.memoryLimit } : app;
+	}));
 
 	const filtered = $derived(
-		data.apps.filter((app) => {
+		appsWithMetrics.filter((app) => {
 			const matchesCategory = store.activeCategory === 'all' || app.category === store.activeCategory;
 			const matchesSearch = store.searchQuery === '' || app.name.toLowerCase().includes(store.searchQuery.toLowerCase());
 			return matchesCategory && matchesSearch;
@@ -27,54 +39,39 @@
 	);
 
 	async function handleAction(action: string, slug: string) {
-		if (action === 'update') {
-			ui.addToast(`Updating ${slug}...`, 'info');
-			updatingSlug = slug;
-			try {
-				const res = await fetch(`/api/apps/${slug}/update`, { method: 'POST' });
-				const result = await res.json();
-				if (result.success && result.jobId) {
-					const stream = useJobStream(result.jobId);
-					$effect(() => {
-						if (stream.done) {
-							if (stream.status === 'completed') {
-								ui.addToast(`Update ${slug} completed`, 'success');
-								invalidateAll();
-							} else {
-								const detail = stream.output.length
-									? stream.output.slice(-3).join('\n')
-									: `exit code ${stream.exitCode ?? 'unknown'}`;
-								ui.addToast(`Update ${slug} failed: ${detail}`, 'error');
-							}
-							updatingSlug = null;
-						}
-					});
-				} else {
-					ui.addToast(`Failed to update ${slug}`, 'error');
-					updatingSlug = null;
-				}
-			} catch {
-				ui.addToast(`Failed to update ${slug}`, 'error');
-				updatingSlug = null;
+		if (updatingSlugs.includes(slug)) return;
+		updatingSlugs = [...updatingSlugs, slug];
+		try {
+			if (action === 'update') {
+				ui.addToast(`Updating ${slug}...`, 'info');
+				const job = await requestJob(`/api/apps/${slug}/update`, operations.signal);
+				if (job.status !== 'completed') throw new Error(jobFailure(job));
+			} else {
+				const response = await fetch(`/api/apps/${slug}/action`, {
+					method: 'POST', headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ action }), signal: operations.signal
+				});
+				const result = await response.json();
+				if (!response.ok || !result.success) throw new Error(result.error ?? 'Operation failed');
 			}
-		} else {
-			ui.addToast(`${action} ${slug}...`, 'info');
+			ui.addToast(`${action} ${slug} completed`, 'success');
+			await invalidateAll();
+		} catch (error) {
+			if (!operations.signal.aborted) ui.addToast(`Failed to ${action} ${slug}: ${error instanceof Error ? error.message : error}`, 'error');
+		} finally {
+			updatingSlugs = updatingSlugs.filter((value) => value !== slug);
 		}
 	}
 
 	async function handleInstall(slug: string) {
 		ui.addToast(`Installing ${slug}...`, 'info');
 		try {
-			const res = await fetch(`/api/apps/${slug}/install`, { method: 'POST' });
-			const result = await res.json();
-			if (result.success) {
-				ui.addToast(`${slug} installed successfully`, 'success');
-				await invalidateAll();
-			} else {
-				ui.addToast(`Failed to install ${slug}`, 'error');
-			}
-		} catch {
-			ui.addToast(`Failed to install ${slug}`, 'error');
+			const job = await requestJob(`/api/apps/${slug}/install`, operations.signal);
+			if (job.status !== 'completed') throw new Error(jobFailure(job));
+			ui.addToast(`${slug} installed successfully`, 'success');
+			await invalidateAll();
+		} catch (error) {
+			if (!operations.signal.aborted) ui.addToast(`Failed to install ${slug}: ${error instanceof Error ? error.message : error}`, 'error');
 		}
 	}
 
@@ -155,7 +152,7 @@
 		<CategoryFilter bind:active={store.activeCategory} />
 	</div>
 
-	<AppGrid apps={filtered} onaction={handleAction} {updatingSlug} />
+	<AppGrid apps={filtered} onaction={handleAction} {updatingSlugs} />
 
 	<AppCatalog
 		catalog={data.catalog}

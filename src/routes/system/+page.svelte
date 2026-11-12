@@ -26,6 +26,8 @@
 		<div class="bg-surface border border-border rounded-lg animate-pulse h-24"></div>
 	{:then services}
 		<ServiceHealth {services} />
+	{:catch}
+		<p class="text-sm text-red">Unable to load service health.</p>
 	{/await}
 
 	{#if liveHealth}
@@ -43,6 +45,18 @@
 		</div>
 	{/if}
 
-	<BackupStatus backups={data.backups} />
-	<TraefikRoutes routes={data.routes} />
+	{#await data.backups}
+		<div class="bg-surface border border-border rounded-lg animate-pulse h-24"></div>
+	{:then backups}
+		<BackupStatus {backups} />
+	{:catch}
+		<p class="text-sm text-red">Unable to load backups.</p>
+	{/await}
+	{#await data.routes}
+		<div class="bg-surface border border-border rounded-lg animate-pulse h-24"></div>
+	{:then routes}
+		<TraefikRoutes {routes} />
+	{:catch}
+		<p class="text-sm text-red">Unable to load Traefik routes.</p>
+	{/await}
 </div>

@@ -4,7 +4,10 @@
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import { getUI } from '$lib/stores/ui.svelte';
 	import { invalidateAll } from '$app/navigation';
-	import { useJobStream } from '$lib/utils/use-job-stream.svelte';
+	import { waitForJob, jobFailure } from '$lib/utils/wait-for-job';
+	import { onDestroy } from 'svelte';
+	const operations = new AbortController();
+	onDestroy(() => operations.abort());
 
 	const ui = getUI();
 
@@ -12,27 +15,17 @@
 	let updatingSaltbox = $state(false);
 	let showUpdateModal = $state(false);
 	let showUpdateAllModal = $state(false);
-	let activeStream = $state<ReturnType<typeof useJobStream> | null>(null);
-
-	function streamJob(jobId: string, label: string, onDone: () => void) {
-		const stream = useJobStream(jobId);
-		activeStream = stream;
-
-		$effect(() => {
-			if (stream.done) {
-				if (stream.status === 'completed') {
-					ui.addToast(`${label} completed`, 'success');
-					invalidateAll();
-				} else {
-					const detail = stream.output.length
-						? stream.output.slice(-3).join('\n')
-						: `exit code ${stream.exitCode ?? 'unknown'}`;
-					ui.addToast(`${label} failed: ${detail}`, 'error');
-				}
-				activeStream = null;
-				onDone();
-			}
-		});
+	async function streamJob(jobId: string, label: string, onDone: () => void) {
+		try {
+			const job = await waitForJob(jobId, { signal: operations.signal });
+			if (job.status !== 'completed') throw new Error(jobFailure(job));
+			ui.addToast(`${label} completed`, 'success');
+			await invalidateAll();
+		} catch (error) {
+			if (!operations.signal.aborted) ui.addToast(`${label} failed: ${error instanceof Error ? error.message : error}`, 'error');
+		} finally {
+			onDone();
+		}
 	}
 
 	async function handleAction(name: string, action: string) {
@@ -164,12 +157,5 @@
 		<GitBranch size={40} class="text-primary animate-pulse" />
 		<p class="text-text text-lg font-medium">Updating Saltbox...</p>
 		<p class="text-text-secondary text-sm">All Docker containers are being restarted. Please wait.</p>
-		{#if activeStream && activeStream.output.length > 0}
-			<div class="w-full max-w-2xl mt-4 bg-surface border border-border rounded-lg p-3 max-h-48 overflow-y-auto font-mono text-xs text-text-secondary">
-				{#each activeStream.output.slice(-20) as line}
-					<div>{line}</div>
-				{/each}
-			</div>
-		{/if}
 	</div>
 {/if}

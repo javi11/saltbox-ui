@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { Search, LayoutDashboard, Grid3x3, HardDrive, Container, Activity, RotateCw, Download, Trash2 } from 'lucide-svelte';
 	import { getUI } from '$lib/stores/ui.svelte';
-	import type { Component } from 'svelte';
+	import type { Cpu as LucideIcon } from 'lucide-svelte';
 
 	const ui = getUI();
 
@@ -13,7 +13,7 @@
 		id: string;
 		label: string;
 		category: string;
-		icon: Component<{ size?: number; class?: string }>;
+		icon: typeof LucideIcon;
 		action: () => void;
 	}
 

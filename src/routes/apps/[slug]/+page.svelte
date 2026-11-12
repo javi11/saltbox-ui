@@ -3,8 +3,21 @@
 	import { getUI } from '$lib/stores/ui.svelte';
 	import { invalidateAll } from '$app/navigation';
 	import { goto } from '$app/navigation';
+	import { requestJob, jobFailure } from '$lib/utils/wait-for-job';
+	import { onDestroy } from 'svelte';
+	import { createSSE } from '$lib/utils/sse.svelte';
+	import type { Container } from '$lib/types/container';
+	const operations = new AbortController();
+	onDestroy(() => operations.abort());
 
 	let { data } = $props();
+	let liveContainers = $state<Container[]>([]);
+	const containersSSE = createSSE('/api/sse/containers');
+	containersSSE.on('containers', (value) => { liveContainers = value as Container[]; });
+	const app = $derived.by(() => {
+		const live = liveContainers.find((container) => container.name.toLowerCase().replace(/[^a-z0-9-]/g, '-') === data.app.slug);
+		return live ? { ...data.app, cpu: live.cpu, memory: live.memory, memoryLimit: live.memoryLimit } : data.app;
+	});
 	const ui = getUI();
 	let isUpdating = $state(false);
 
@@ -28,45 +41,18 @@
 		}
 	}
 
-	async function pollJob(jobId: string, label: string): Promise<boolean> {
-		for (let i = 0; i < 100; i++) {
-			await new Promise((r) => setTimeout(r, 3000));
-			try {
-				const res = await fetch(`/api/jobs/${jobId}`);
-				if (!res.ok) break;
-				const job = await res.json();
-				if (job.status === 'completed') {
-					ui.addToast(`${label} completed`, 'success');
-					await invalidateAll();
-					return true;
-				}
-				if (job.status === 'failed') {
-					const detail = job.output?.length ? job.output.slice(-3).join('\n') : `exit code ${job.exitCode ?? 'unknown'}`;
-					ui.addToast(`${label} failed: ${detail}`, 'error');
-					return false;
-				}
-			} catch {
-				break;
-			}
-		}
-		ui.addToast(`${label} timed out`, 'error');
-		return false;
-	}
-
 	async function handleAction(action: 'start' | 'stop' | 'restart' | 'update') {
 		if (action === 'update') {
+			if (isUpdating) return;
 			ui.addToast(`Updating ${data.app.name}...`, 'info');
 			isUpdating = true;
 			try {
-				const res = await fetch(`/api/apps/${data.app.slug}/update`, { method: 'POST' });
-				const result = await res.json();
-				if (result.success && result.jobId) {
-					await pollJob(result.jobId, `Update ${data.app.name}`);
-				} else {
-					ui.addToast(`Failed to update ${data.app.name}`, 'error');
-				}
-			} catch {
-				ui.addToast(`Failed to update ${data.app.name}`, 'error');
+				const job = await requestJob(`/api/apps/${data.app.slug}/update`, operations.signal);
+				if (job.status !== 'completed') throw new Error(jobFailure(job));
+				ui.addToast(`Update ${data.app.name} completed`, 'success');
+				await invalidateAll();
+			} catch (error) {
+				if (!operations.signal.aborted) ui.addToast(`Failed to update ${data.app.name}: ${error instanceof Error ? error.message : error}`, 'error');
 			} finally {
 				isUpdating = false;
 			}
@@ -97,4 +83,4 @@
 	<title>{data.app.name} — Saltbox</title>
 </svelte:head>
 
-<AppDetail app={data.app} logs={data.logs} onaction={handleAction} ondelete={handleDelete} {isUpdating} />
+<AppDetail {app} logs={data.logs} onaction={handleAction} ondelete={handleDelete} {isUpdating} />

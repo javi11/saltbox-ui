@@ -4,7 +4,7 @@ import { promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
 
 // nsenter flags: -t 1 targets host PID 1; -m -u -i -n enters mount, UTS, IPC, and network namespaces
-const NSENTER_PREFIX = ['-t', '1', '-m', '-u', '-i', '-n', '--'];
+const NSENTER_PREFIX = ['-t', '1', '-m', '-u', '-i', '-n', '--wd=/', '--'];
 
 // Clean environment for host-side execution — avoids leaking container env vars
 // and ensures Ansible correctly detects the process as root.
@@ -33,7 +33,7 @@ export async function hostExec(
 	});
 }
 
-function shellEscape(s: string): string {
+export function shellEscape(s: string): string {
 	return "'" + s.replace(/'/g, "'\\''" ) + "'";
 }
 
